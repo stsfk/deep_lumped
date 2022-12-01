@@ -1,5 +1,4 @@
 # %%
-# to do: half percision training
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -272,7 +271,7 @@ def val_model(
     if return_summary:
         out = val_metric(preds, y)
     else:
-        out = preds
+        out = (preds, y)
 
     return out
 
