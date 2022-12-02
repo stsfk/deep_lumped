@@ -34,12 +34,12 @@ EPOCHS = 500
 
 TRAIN_YEAR = 19
 
-PATIENCE = 10
+PATIENCE = 20
 
 dtypes = defaultdict(lambda: float)
 dtypes["catchment_id"] = str
 
-use_amp = False
+use_amp = True
 
 # %%
 class Forcing_Data(Dataset):
@@ -310,7 +310,7 @@ def val_model(
 
 # %%
 def define_model(trial):
-    lstm_hidden_dim = trial.suggest_int("lstm_hidden_dim", 4, 128)
+    lstm_hidden_dim = trial.suggest_int("lstm_hidden_dim", 4, 256)
     n_lstm_layers = trial.suggest_int("n_lstm_layers", 1, 2)
     n_fc_layers = trial.suggest_int("n_fc_layers", 1, 3)
     LATENT_DIM_power = trial.suggest_int("LATENT_DIM_power", 1, 2)
@@ -325,7 +325,7 @@ def define_model(trial):
 
     fc_hidden_dims = []
     for i in range(n_fc_layers):
-        fc_dim = trial.suggest_int(f"fc_dim{i}", 4, 16)
+        fc_dim = trial.suggest_int(f"fc_dim{i}", 4, 32)
         fc_hidden_dims.append(fc_dim)
 
     decoder = Decoder(
@@ -365,7 +365,7 @@ def objective(trial):
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
     # define batch size
-    batch_size_power = trial.suggest_int("batch_size_power", 4, 7)
+    batch_size_power = trial.suggest_int("batch_size_power", 4, 8)
     batch_size = 2**batch_size_power
 
     # train model
@@ -440,7 +440,7 @@ def objective(trial):
 study = optuna.create_study(
     study_name="base_model", direction="minimize", pruner=optuna.pruners.NopPruner()
 )
-study.optimize(objective, n_trials=10)
+study.optimize(objective, n_trials=500)
 
 # %%
 joblib.dump(study, "lstm_base__study.pkl")
