@@ -11,18 +11,34 @@ pacman::p_load(
 
 # Read time series data ---------------------------------------------------
 
+# filter out catchments contained in CAMELS
+camels_catchment_ids <- read_delim("./data/CAMELS_Knoben/camels_name.txt", delim = ";") %>%
+  pull(gauge_id)
+
 collection_names <- dir("./data/Caravan/timeseries/csv/")
 ts_filename <- lapply(collection_names, function(x) paste0("./data/Caravan/timeseries/csv/", x)) %>%
   lapply(dir)
 
-n_catchment <- unlist(ts_filename) %>% length()
-
 data_ts <- tibble(
   file_name = unlist(ts_filename),
   collection_name = str_extract(file_name, ".*(?=[_])"),
-  catchment_name = str_extract(file_name, "(?<=[_]).*(?=[\\.])"),
-  data = vector("list", 1)
-)
+  catchment_id = str_extract(file_name, "(?<=[_]).*(?=[\\.])"),
+  path = paste0(
+    "./data/Caravan/timeseries/csv/",
+    collection_name,
+    '/',
+    file_name),
+    data = vector("list", 1)
+) %>%
+  filter(!(catchment_id %in% camels_catchment_ids))
+
+data_ts %>% count(collection_name)
+
+n_catchment <- unlist(ts_filename) %>% length()
+
+
+data_ts <- data_ts %>%
+  mutate(data = map(path, read_csv, show_col_types = FALSE))
 
 for (i in 1:nrow(data_ts)){
   data_ts$data[[i]] <-
@@ -58,14 +74,12 @@ data_raw <- data_ts %>%
     )))
 
 data_process <- data_raw  %>%
-  filter(collection_name != "camels") %>%
   mutate(
-    catchment_id = paste(collection_name, catchment_name, sep = "-")
+    catchment_id = paste(collection_name, catchment_id, sep = "-")
   ) %>%
   select(catchment_id, data)
 
-
-# many missing data, some catchment only have 396 records
+# many missing data, some catchment only have 365 records
 n_complete_record <- data_process %>%
   mutate(
     missingness = purrr::map_dbl(
@@ -75,7 +89,7 @@ n_complete_record <- data_process %>%
   ) %>%
   pull(missingness)
 
-# all the catchment's records are of the same length
+# all the catchment's records are of the same length = 14609
 data_process %>%
   mutate(
     record_length = purrr::map_dbl(
@@ -130,6 +144,8 @@ data_process <- data_process %>%
 # all the forcing data is available, some of the flow data is missing
 # catchments with missing Q records is stored in `incomplete_catchments`
 
+minimal_required_Q_length = 365*5
+
 incomplete_catchment_train <- data_process %>%
   filter(date < ymd("2001-01-01")) %>%
   group_by(catchment_id) %>%
@@ -139,7 +155,7 @@ incomplete_catchment_train <- data_process %>%
       data, function(x) complete.cases(x) %>% sum()
     )
   ) %>%
-  filter(n_complete_record < 365) %>%
+  filter(n_complete_record < minimal_required_Q_length) %>%
   pull(catchment_id)
 
 incomplete_catchment_val <- data_process %>%
@@ -152,7 +168,7 @@ incomplete_catchment_val <- data_process %>%
       data, function(x) complete.cases(x) %>% sum()
     )
   ) %>%
-  filter(n_complete_record < 365) %>%
+  filter(n_complete_record < minimal_required_Q_length) %>%
   pull(catchment_id)
 
 incomplete_catchment_test <- data_process %>%
@@ -164,7 +180,7 @@ incomplete_catchment_test <- data_process %>%
       data, function(x) complete.cases(x) %>% sum()
     )
   ) %>%
-  filter(n_complete_record < 365) %>%
+  filter(n_complete_record < minimal_required_Q_length) %>%
   pull(catchment_id)
 
 incomplete_catchments <-
@@ -173,10 +189,13 @@ incomplete_catchments <-
     incomplete_catchment_val) %>%
   unique()
 
+data_process %>%
+  filter(!(catchment_id %in% incomplete_catchments)) %>% pull(catchment_id) %>% unique() %>% length()
+
 data_process <- data_process %>%
   filter(!(catchment_id %in% incomplete_catchments))
 
-# 1758 catchments left
+# 2346 catchments left
 
 # Split the data ----------------------------------------------------------
 
