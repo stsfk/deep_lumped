@@ -28,7 +28,7 @@ BASE_LENGTH = SEQ_LENGTH - TARGET_SEQ_LENGTH
 
 FORCING_DIM = 3
 
-N_CATCHMENT = 1758
+N_CATCHMENT = 2346
 
 EPOCHS = 500
 
@@ -40,6 +40,9 @@ dtypes = defaultdict(lambda: float)
 dtypes["catchment_id"] = str
 
 use_amp = True
+compile_model = True
+
+torch.set_float32_matmul_precision("high")
 
 # %%
 class Forcing_Data(Dataset):
@@ -134,8 +137,8 @@ class Forcing_Data(Dataset):
 
 
 # %%
-dtrain = Forcing_Data("data_train_w_missing.csv", record_length=7304)
-dval = Forcing_Data("data_val_w_missing.csv", record_length=4017)
+dtrain = Forcing_Data("data/data_train_w_missing.csv", record_length=7304)
+dval = Forcing_Data("data/data_val_w_missing.csv", record_length=4017)
 
 # %%
 class EarlyStopper:
@@ -336,6 +339,10 @@ def objective(trial):
     # define model
     embedding, decoder = define_model(trial)
     embedding, decoder = embedding.to(DEVICE), decoder.to(DEVICE)
+
+    if compile_model:
+        # pytorch2.0 new feature, complile model for fast training
+        embedding, decoder = torch.compile(embedding), torch.compile(decoder)
 
     # define optimizers
     lr_embedding = trial.suggest_float("lr_embedding", 5e-5, 1e-2, log=True)

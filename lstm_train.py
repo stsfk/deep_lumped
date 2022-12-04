@@ -28,7 +28,7 @@ BASE_LENGTH = SEQ_LENGTH - TARGET_SEQ_LENGTH
 
 FORCING_DIM = 3
 
-N_CATCHMENT = 1758
+N_CATCHMENT = 2346
 
 EPOCHS = 500
 
@@ -39,7 +39,12 @@ PATIENCE = 20
 dtypes = defaultdict(lambda: float)
 dtypes["catchment_id"] = str
 
+# training hyperparameters
 use_amp = True
+
+compile_model = True
+
+torch.set_float32_matmul_precision("high")
 
 # %%
 class Forcing_Data(Dataset):
@@ -134,8 +139,8 @@ class Forcing_Data(Dataset):
 
 
 # %%
-dtrain = Forcing_Data("data_train_w_missing.csv", record_length=7304)
-dval = Forcing_Data("data_val_w_missing.csv", record_length=4017)
+dtrain = Forcing_Data("data/data_train_w_missing.csv", record_length=7304)
+dval = Forcing_Data("data/data_val_w_missing.csv", record_length=4017)
 
 # %%
 class EarlyStopper:
@@ -325,7 +330,7 @@ def define_model(trial):
 
     fc_hidden_dims = []
     for i in range(n_fc_layers):
-        fc_dim = trial.suggest_int(f"fc_dim{i}", 4, 32)
+        fc_dim = trial.suggest_int(f"fc_dim{i}", 4, 16)
         fc_hidden_dims.append(fc_dim)
 
     decoder = Decoder(
@@ -355,6 +360,10 @@ def objective(trial):
     embedding, decoder = define_model(trial)
     embedding, decoder = embedding.to(DEVICE), decoder.to(DEVICE)
 
+    if compile_model:
+        # pytorch2.0 new feature, complile model for fast training
+        embedding, decoder = torch.compile(embedding), torch.compile(decoder)
+
     # define optimizers
     lr_embedding = trial.suggest_float("lr_embedding", 5e-5, 1e-2, log=True)
     embedding_optimizer = optim.Adam(embedding.parameters(), lr=lr_embedding)
@@ -365,7 +374,7 @@ def objective(trial):
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
     # define batch size
-    batch_size_power = trial.suggest_int("batch_size_power", 4, 8)
+    batch_size_power = trial.suggest_int("batch_size_power", 5, 8)
     batch_size = 2**batch_size_power
 
     # train model
@@ -443,4 +452,4 @@ study = optuna.create_study(
 study.optimize(objective, n_trials=500)
 
 # %%
-joblib.dump(study, "lstm_base_study.pkl")
+joblib.dump(study, "data/lstm_base_study.pkl")
