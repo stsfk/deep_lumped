@@ -275,7 +275,7 @@ def mse_loss_with_nans(input, target):
 
 
 def val_model(
-    embedding, decoder, dataset, val_metric=mse_loss_with_nans, return_summary=True
+    embedding, decoder, data, val_metric=mse_loss_with_nans, return_summary=True
 ):
     """Validate embedding and decoder using the validation batch from dataset and val_metric.
 
@@ -285,34 +285,31 @@ def val_model(
         dataset (Forcing_Data): dataset to be used in validation.
         val_metric (function, optional): compute gof metric. Defaults to mse_loss_with_nans.
         return_summary (bool, optional): whether the gof metric or the raw prediciton should be returned. Defaults to True.
+        val_steps(int, optional): Number of catchments evaluated at each steps. Defaults to 500.
 
     Returns:
         tensor: gof metric or raw prediction.
     """
-    x, y = dataset.get_val_batch()
+    x, y = data.get_val_batch()
 
     embedding.eval()
     decoder.eval()
 
-    preds = torch.ones(size=y.shape).to(storge_device)
+    preds = torch.ones(size=y.shape).to(DEVICE)
 
-    selected_catchments = torch.arange(N_CATCHMENT).to(computing_device)
+    selected_catchments = torch.arange(N_CATCHMENT).to(DEVICE)
 
     with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=use_amp):
         with torch.no_grad():
             code = embedding(selected_catchments)
-
             for i in range(x.shape[0]):
-                x_sub = x[i, :, :, :].to(computing_device)
-                if memory_saving:
-                    preds[i, :, :] = decoder.decode(code, x_sub).to(storge_device)
-                else:
-                    preds[i, :, :] = decoder.decode(code, x_sub)
+                x_sub = x[i, :, :, :]
+                preds[i, :, :] = decoder.decode(code, x_sub)
 
     if return_summary:
         out = val_metric(preds, y)
     else:
-        out = (preds, y)
+        out = preds
 
     return out
 
@@ -343,7 +340,7 @@ def val_model_mem_saving(
     embedding.eval()
     decoder.eval()
 
-    preds = torch.ones(size=y.shape)
+    preds = torch.ones(size=y.shape, device=storge_device)
 
     # iterate over years
     for i in range(x.shape[0]):
@@ -358,12 +355,14 @@ def val_model_mem_saving(
                     code = embedding(
                         torch.arange(
                             start=start_catchment_ind, end=end_catchment_ind
-                        ).to(DEVICE)
+                        ).to(computing_device)
                     )
-                    x_sub = x[i, start_catchment_ind:end_catchment_ind, :, :].to(DEVICE)
+                    x_sub = x[i, start_catchment_ind:end_catchment_ind, :, :].to(
+                        computing_device
+                    )
                     preds[i, start_catchment_ind:end_catchment_ind, :] = decoder.decode(
                         code, x_sub
-                    ).cpu()
+                    ).to(storge_device)
 
     if return_summary:
         out = val_metric(preds, y)
