@@ -382,20 +382,27 @@ def val_model_mem_saving(
 
 class Model:
     def __init__(
-        self,
-        latent_dim,
-        lstm_hidden_dim,
-        n_lstm_layers,
-        fc_hidden_dims,
-        p,
-        feature_dim=3,
-        output_dim=1,
+        self, hidden_channel_dim=128, kernel_size=3, p=0.5, feature_dim=3, latent_dim=4
     ):
         # N_CATCHMENT is from global
-        
+
+        # num_channels
+        # ref: https://unit8.com/resources/temporal-convolutional-networks-and-forecasting/
+        base = 2  # dilation factor
+        n_levels = math.log(
+            (BASE_LENGTH - 1) * (base - 1) / (kernel_size - 1) / 2 + 1
+        ) / math.log(2)
+        n_levels = math.ceil(n_levels)
+
+        num_channels = []
+        for i in range(n_levels - 1):
+            num_channels.append(hidden_channel_dim)
+
+        num_channels.append(1)  # output dim = 1
+
         self.decoder = Decoder(
             latent_dim=latent_dim,
-            feature_dim=FORCING_DIM,
+            feature_dim=feature_dim,
             num_channels=num_channels,
             kernel_size=kernel_size,
             p=p,
@@ -405,13 +412,11 @@ class Model:
 
 
 def speed_test(
-    latent_dim,
-    lstm_hidden_dim,
-    n_lstm_layers,
-    fc_hidden_dims,
-    p,
+    hidden_channel_dim=128,
+    kernel_size=3,
+    p=0.5,
     feature_dim=3,
-    output_dim=1,
+    latent_dim=4,
     lr_embedding=0.001,
     lr_decoder=0.001,
     batch_size=64,
@@ -424,13 +429,11 @@ def speed_test(
 
     # define model
     model = Model(
-        latent_dim,
-        lstm_hidden_dim,
-        n_lstm_layers,
-        fc_hidden_dims,
-        p,
-        feature_dim,
-        output_dim,
+        hidden_channel_dim=hidden_channel_dim,
+        kernel_size=kernel_size,
+        p=p,
+        feature_dim=feature_dim,
+        latent_dim=latent_dim,
     )
 
     embedding, decoder = model.embedding.to(computing_device), model.decoder.to(
@@ -524,13 +527,11 @@ starting_time = time.time()
 print("Process started...")
 
 fit = speed_test(
-    latent_dim=4,
-    lstm_hidden_dim=128,
-    n_lstm_layers=2,
-    fc_hidden_dims=[16, 8, 4],
+    hidden_channel_dim=128,
+    kernel_size=3,
     p=0.5,
     feature_dim=3,
-    output_dim=1,
+    latent_dim=4,
     lr_embedding=0.001,
     lr_decoder=0.001,
     batch_size=64,
