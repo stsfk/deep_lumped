@@ -39,10 +39,20 @@ PATIENCE = 10
 dtypes = defaultdict(lambda: float)
 dtypes["catchment_id"] = str
 
+# training hyperparameters
 use_amp = True
-compile_model = True
+compile_model = False
 
-torch.set_float32_matmul_precision("high")
+if compile_model:
+    torch.set_float32_matmul_precision("high")
+
+memory_saving = False
+if memory_saving:
+    storge_device = "cpu"
+    computing_device = DEVICE
+else:
+    storge_device = DEVICE
+    computing_device = DEVICE
 
 # %%
 class Forcing_Data(Dataset):
@@ -59,14 +69,14 @@ class Forcing_Data(Dataset):
 
         x = torch.tensor(x.values, dtype=torch.float32)
         x = x.view(-1, record_length, n_feature)
-        self.x = x.to(DEVICE)
+        self.x = x.to(storge_device)
 
         # normalization and then reshape to catchment*record
         y = data_raw["Q"]
 
         y = torch.tensor(y.values, dtype=torch.float32)
         y = y.view(-1, record_length)
-        self.y = y.to(DEVICE)
+        self.y = y.to(storge_device)
 
         self.record_length = self.x.shape[1]
 
@@ -87,12 +97,12 @@ class Forcing_Data(Dataset):
             low=0,
             high=self.record_length - SEQ_LENGTH + 1,
             size=(N_CATCHMENT,),
-            device=DEVICE,
+            device=storge_device,
         )
 
         # expand the index to have the length of SEQ_LENGTH, adding 0 to SEQ_LENGTH to get correct index
         index_y = index.unsqueeze(-1).repeat(1, SEQ_LENGTH) + torch.arange(
-            SEQ_LENGTH, device=DEVICE
+            SEQ_LENGTH, device=storge_device
         )
         index_x = index_y.unsqueeze(-1).repeat(1, 1, FORCING_DIM)
 
@@ -103,15 +113,18 @@ class Forcing_Data(Dataset):
 
         return x_batch, y_batch[:, BASE_LENGTH:]
 
-    def get_val_batch(self, device=DEVICE):
+    def get_val_batch(self):
         n_years = math.ceil((self.record_length - BASE_LENGTH) / TARGET_SEQ_LENGTH)
 
         out_x = (
-            torch.ones([n_years, N_CATCHMENT, SEQ_LENGTH, FORCING_DIM], device=device)
+            torch.ones(
+                [n_years, N_CATCHMENT, SEQ_LENGTH, FORCING_DIM], device=storge_device
+            )
             * torch.nan
         )
         out_y = (
-            torch.ones([n_years, N_CATCHMENT, SEQ_LENGTH], device=device) * torch.nan
+            torch.ones([n_years, N_CATCHMENT, SEQ_LENGTH], device=storge_device)
+            * torch.nan
         )
 
         for i in range(n_years):
@@ -259,17 +272,20 @@ def val_model(
     embedding.eval()
     decoder.eval()
 
-    preds = torch.ones(size=y.shape).to(DEVICE)
+    preds = torch.ones(size=y.shape).to(storge_device)
 
-    selected_catchments = torch.arange(N_CATCHMENT).to(DEVICE)
+    selected_catchments = torch.arange(N_CATCHMENT).to(computing_device)
 
     with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=use_amp):
         with torch.no_grad():
             code = embedding(selected_catchments)
 
             for i in range(x.shape[0]):
-                x_sub = x[i, :, :, :]
-                preds[i, :, :] = decoder.decode(code, x_sub)
+                x_sub = x[i, :, :, :].to(computing_device)
+                if memory_saving:
+                    preds[i, :, :] = decoder.decode(code, x_sub).to(storge_device)
+                else:
+                    preds[i, :, :] = decoder.decode(code, x_sub)
 
     if return_summary:
         out = val_metric(preds, y)
@@ -338,7 +354,7 @@ def objective(trial):
 
     # define model
     embedding, decoder = define_model(trial)
-    embedding, decoder = embedding.to(DEVICE), decoder.to(DEVICE)
+    embedding, decoder = embedding.to(computing_device), decoder.to(computing_device)
 
     if compile_model:
         # pytorch2.0 new feature, complile model for fast training
@@ -368,7 +384,15 @@ def objective(trial):
         for year in range(TRAIN_YEAR):
 
             x_batch, y_batch = dtrain.get_random_batch()
-            catchment_index = torch.randperm(N_CATCHMENT).to(DEVICE)  # add randomness
+
+            if memory_saving:
+                x_batch, y_batch = x_batch.to(computing_device), y_batch.to(
+                    computing_device
+                )
+
+            catchment_index = torch.randperm(
+                N_CATCHMENT, device=computing_device
+            )  # add randomness
 
             # interate over catchments
             for i in range(int(N_CATCHMENT / batch_size)):
@@ -429,7 +453,7 @@ def objective(trial):
 study = optuna.create_study(
     study_name="base_model", direction="minimize", pruner=optuna.pruners.NopPruner()
 )
-study.optimize(objective, n_trials=10)
+study.optimize(objective, n_trials=100)
 
 # %%
 joblib.dump(study, "base_TCN_study.pkl")
