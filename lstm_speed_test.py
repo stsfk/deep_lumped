@@ -25,11 +25,11 @@ FORCING_DIM = 3
 
 N_CATCHMENT = 2346
 
-EPOCHS = 500
+EPOCHS = 50
 
 TRAIN_YEAR = 19
 
-PATIENCE = 10
+PATIENCE = 100
 
 dtypes = defaultdict(lambda: float)
 dtypes["catchment_id"] = str
@@ -295,9 +295,9 @@ def val_model(
     embedding.eval()
     decoder.eval()
 
-    preds = torch.ones(size=y.shape).to(DEVICE)
+    preds = torch.ones(size=y.shape, device=storge_device)
 
-    selected_catchments = torch.arange(N_CATCHMENT).to(DEVICE)
+    selected_catchments = torch.arange(N_CATCHMENT, device=computing_device)
 
     with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=use_amp):
         with torch.no_grad():
@@ -354,8 +354,10 @@ def val_model_mem_saving(
                 with torch.no_grad():
                     code = embedding(
                         torch.arange(
-                            start=start_catchment_ind, end=end_catchment_ind
-                        ).to(computing_device)
+                            start=start_catchment_ind,
+                            end=end_catchment_ind,
+                            device=computing_device,
+                        )
                     )
                     x_sub = x[i, start_catchment_ind:end_catchment_ind, :, :].to(
                         computing_device
@@ -496,9 +498,7 @@ def speed_test(
         embedding.eval()
 
         if memory_saving:
-            val_loss = (
-                val_model_mem_saving(embedding, decoder, dval).detach().cpu().numpy()
-            )
+            val_loss = val_model_mem_saving(embedding, decoder, dval)
         else:
             val_loss = val_model(embedding, decoder, dval).detach().cpu().numpy()
 
