@@ -1,4 +1,3 @@
-# %%
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -13,12 +12,9 @@ import math
 
 import pandas as pd
 
-import optuna
-
-import joblib
+import time
 
 
-# %%
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 SEQ_LENGTH = 365 * 2
@@ -53,7 +49,7 @@ else:
     storge_device = DEVICE
     computing_device = DEVICE
 
-# %%
+
 class Forcing_Data(Dataset):
     def __init__(
         self,
@@ -148,11 +144,10 @@ class Forcing_Data(Dataset):
         return out_x, out_y[:, :, BASE_LENGTH:]
 
 
-# %%
 dtrain = Forcing_Data("data/data_train_w_missing.csv", record_length=7304)
 dval = Forcing_Data("data/data_val_w_missing.csv", record_length=4017)
 
-# %%
+
 class EarlyStopper:
     # Reference: https://stackoverflow.com/a/73704579/3361298
 
@@ -173,7 +168,6 @@ class EarlyStopper:
         return False
 
 
-# %%
 class TimeDistributed(nn.Module):
     # Adatpted from https://discuss.pytorch.org/t/any-pytorch-function-can-work-as-keras-timedistributed/1346/4
 
@@ -209,7 +203,6 @@ class TimeDistributed(nn.Module):
         return y
 
 
-# %%
 class Decoder(nn.Module):
     def __init__(
         self,
@@ -269,7 +262,6 @@ class Decoder(nn.Module):
         return out
 
 
-# %%
 def mse_loss_with_nans(input, target):
     # Adapted from https://stackoverflow.com/a/59851632/3361298
 
@@ -282,7 +274,6 @@ def mse_loss_with_nans(input, target):
     return loss
 
 
-# %%
 def val_model(
     embedding, decoder, dataset, val_metric=mse_loss_with_nans, return_summary=True
 ):
@@ -326,43 +317,43 @@ def val_model(
     return out
 
 
-# %%
-def define_model(trial):
-    lstm_hidden_dim = trial.suggest_int("lstm_hidden_dim", 4, 256)
-    n_lstm_layers = trial.suggest_int("n_lstm_layers", 1, 2)
-    n_fc_layers = trial.suggest_int("n_fc_layers", 1, 3)
-    LATENT_DIM_power = trial.suggest_int("LATENT_DIM_power", 1, 2)
-    LATENT_DIM = 2**LATENT_DIM_power
-
-    drop_out_flag = trial.suggest_categorical("drop_out_flag", [True, False])
-
-    if drop_out_flag:
-        p = trial.suggest_float("dropout_rate", 0.2, 0.5)
-    else:
-        p = 0
-
-    fc_hidden_dims = []
-    for i in range(n_fc_layers):
-        fc_dim = trial.suggest_int(f"fc_dim{i}", 4, 16)
-        fc_hidden_dims.append(fc_dim)
-
-    decoder = Decoder(
-        latent_dim=LATENT_DIM,
-        feature_dim=FORCING_DIM,
-        lstm_hidden_dim=lstm_hidden_dim,
-        fc_hidden_dims=fc_hidden_dims,
-        num_lstm_layers=n_lstm_layers,
+class Model:
+    def __init__(
+        self,
+        latent_dim,
+        lstm_hidden_dim,
+        n_lstm_layers,
+        fc_hidden_dims,
+        p,
+        feature_dim=3,
         output_dim=1,
-        p=p,
-    )
+    ):
+        # N_CATCHMENT is from global
+        self.decoder = Decoder(
+            latent_dim=latent_dim,
+            feature_dim=feature_dim,
+            lstm_hidden_dim=lstm_hidden_dim,
+            fc_hidden_dims=fc_hidden_dims,
+            num_lstm_layers=n_lstm_layers,
+            output_dim=output_dim,
+            p=p,
+        )
 
-    embedding = nn.Embedding(N_CATCHMENT, LATENT_DIM)
-
-    return embedding, decoder
+        self.embedding = nn.Embedding(N_CATCHMENT, latent_dim)
 
 
-# %%
-def objective(trial):
+def speed_test(
+    latent_dim,
+    lstm_hidden_dim,
+    n_lstm_layers,
+    fc_hidden_dims,
+    p,
+    feature_dim=3,
+    output_dim=1,
+    lr_embedding=0.001,
+    lr_decoder=0.001,
+    batch_size=64,
+):
 
     val_losses = []
 
@@ -370,25 +361,29 @@ def objective(trial):
     early_stopper = EarlyStopper(patience=PATIENCE, min_delta=0)
 
     # define model
-    embedding, decoder = define_model(trial)
-    embedding, decoder = embedding.to(computing_device), decoder.to(computing_device)
+    model = Model(
+        latent_dim,
+        lstm_hidden_dim,
+        n_lstm_layers,
+        fc_hidden_dims,
+        p,
+        feature_dim,
+        output_dim,
+    )
+
+    embedding, decoder = model.embedding.to(computing_device), model.decoder.to(
+        computing_device
+    )
 
     if compile_model:
         # pytorch2.0 new feature, complile model for fast training
         embedding, decoder = torch.compile(embedding), torch.compile(decoder)
 
     # define optimizers
-    lr_embedding = trial.suggest_float("lr_embedding", 5e-5, 1e-2, log=True)
     embedding_optimizer = optim.Adam(embedding.parameters(), lr=lr_embedding)
-
-    lr_decoder = trial.suggest_float("lr_decoder", 5e-5, 1e-2, log=True)
     decoder_optimizer = optim.Adam(decoder.parameters(), lr=lr_decoder)
 
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
-
-    # define batch size
-    batch_size_power = trial.suggest_int("batch_size_power", 5, 8)
-    batch_size = 2**batch_size_power
 
     # train model
     for epoch in range(EPOCHS):
@@ -447,14 +442,8 @@ def objective(trial):
 
         val_loss = val_model(embedding, decoder, dval).detach().cpu().numpy()
 
-        trial.report(val_loss, epoch)
-
         # Handle pruning based on the intermediate value
         val_losses.append(val_loss)
-
-        if trial.should_prune():
-            torch.cuda.empty_cache()
-            raise optuna.exceptions.TrialPruned()
 
         # Early stop using early_stopper, break for loop
         if early_stopper.early_stop(val_loss):
@@ -466,11 +455,24 @@ def objective(trial):
     return early_stopper.min_validation_loss
 
 
-# %%
-study = optuna.create_study(
-    study_name="base_model", direction="minimize", pruner=optuna.pruners.NopPruner()
-)
-study.optimize(objective, n_trials=100)
+starting_time = time.time()
+print("Process started...")
 
-# %%
-joblib.dump(study, "data/lstm_base_study.pkl")
+fit = speed_test(
+    latent_dim=4,
+    lstm_hidden_dim=128,
+    n_lstm_layers=2,
+    fc_hidden_dims=[16, 8, 4],
+    p=0.5,
+    feature_dim=3,
+    output_dim=1,
+    lr_embedding=0.001,
+    lr_decoder=0.001,
+    batch_size=64,
+)
+
+print("Process ended...")
+ending_time = time.time()
+print(ending_time - starting_time)
+
+print(f"fit={fit}")
