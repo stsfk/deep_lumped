@@ -317,6 +317,62 @@ def val_model(
     return out
 
 
+def val_model_mem_saving(
+    embedding,
+    decoder,
+    dataset,
+    val_metric=mse_loss_with_nans,
+    return_summary=True,
+    val_steps=500,
+):
+    """Validate embedding and decoder using the validation batch from dataset and val_metric.
+
+    Args:
+        embedding (Embedding): model that map catchment_id (Tensor.int) to latent code [tensor].
+        decoder (Decoder): decorder model.
+        dataset (Forcing_Data): dataset to be used in validation.
+        val_metric (function, optional): compute gof metric. Defaults to mse_loss_with_nans.
+        return_summary (bool, optional): whether the gof metric or the raw prediciton should be returned. Defaults to True.
+        val_steps(int, optional): Number of catchments evaluated at each steps. Defaults to 500.
+
+    Returns:
+        tensor: gof metric or raw prediction.
+    """
+    x, y = dataset.get_val_batch()
+
+    embedding.eval()
+    decoder.eval()
+
+    preds = torch.ones(size=y.shape)
+
+    # iterate over years
+    for i in range(x.shape[0]):
+        # iterate over catchments
+        for j in range(math.ceil(N_CATCHMENT / val_steps)):
+            start_catchment_ind = j * val_steps
+            end_catchment_ind = min((j + 1) * val_steps, N_CATCHMENT)
+            with torch.autocast(
+                device_type="cuda", dtype=torch.float16, enabled=use_amp
+            ):
+                with torch.no_grad():
+                    code = embedding(
+                        torch.arange(
+                            start=start_catchment_ind, end=end_catchment_ind
+                        ).to(DEVICE)
+                    )
+                    x_sub = x[i, start_catchment_ind:end_catchment_ind, :, :].to(DEVICE)
+                    preds[i, start_catchment_ind:end_catchment_ind, :] = decoder.decode(
+                        code, x_sub
+                    ).cpu()
+
+    if return_summary:
+        out = val_metric(preds, y)
+    else:
+        out = preds
+
+    return out
+
+
 class Model:
     def __init__(
         self,
@@ -440,7 +496,12 @@ def speed_test(
         decoder.eval()
         embedding.eval()
 
-        val_loss = val_model(embedding, decoder, dval).detach().cpu().numpy()
+        if memory_saving:
+            val_loss = (
+                val_model_mem_saving(embedding, decoder, dval).detach().cpu().numpy()
+            )
+        else:
+            val_loss = val_model(embedding, decoder, dval).detach().cpu().numpy()
 
         # Handle pruning based on the intermediate value
         val_losses.append(val_loss)
