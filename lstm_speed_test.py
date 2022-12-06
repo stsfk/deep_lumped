@@ -10,8 +10,6 @@ from collections import defaultdict
 
 import math
 
-import pandas as pd
-
 import time
 
 
@@ -53,24 +51,20 @@ else:
 class Forcing_Data(Dataset):
     def __init__(
         self,
-        fpath="data/Caravan/data_train_w_missing.csv",
+        fpath="data/data_train_w_missing.csv",
         record_length=7304,
         n_feature=3,
     ):
-        data_raw = pd.read_csv(fpath, dtype=dtypes)
+        data_raw = np.genfromtxt(fpath, delimiter=",", skip_header=1)
 
         # normalization and then reshape to catchment*record*feature
-        x = data_raw.loc[:, "P":"PET"]
-
-        x = torch.tensor(x.values, dtype=torch.float32)
-        x = x.view(-1, record_length, n_feature)
+        x = torch.from_numpy(data_raw[:, 0:3])
+        x = x.view(-1, record_length, n_feature).contiguous()
         self.x = x.to(storge_device)
 
         # normalization and then reshape to catchment*record
-        y = data_raw["Q"]
-
-        y = torch.tensor(y.values, dtype=torch.float32)
-        y = y.view(-1, record_length)
+        y = torch.from_numpy(data_raw[:, 3])
+        y = y.view(-1, record_length).contiguous()
         self.y = y.to(storge_device)
 
         self.record_length = self.x.shape[1]
