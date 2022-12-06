@@ -15,6 +15,8 @@ import optuna
 
 import joblib
 
+import dataloader
+
 
 # %%
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -496,15 +498,13 @@ def objective(trial):
         decoder.eval()
         embedding.eval()
 
-        val_loss = val_model(embedding, decoder, dval).detach().cpu().numpy()
-
-        trial.report(val_loss, epoch)
-
         # Handle pruning based on the intermediate value
         if memory_saving:
             val_loss = val_model_mem_saving(embedding, decoder, dval)
         else:
             val_loss = val_model(embedding, decoder, dval).detach().cpu().numpy()
+
+        trial.report(val_loss, epoch)
 
         if trial.should_prune():
             torch.cuda.empty_cache()
