@@ -63,12 +63,12 @@ class Forcing_Data(Dataset):
         data_raw = np.genfromtxt(fpath, delimiter=",", skip_header=1)
 
         # normalization and then reshape to catchment*record*feature
-        x = torch.from_numpy(data_raw[:, 0:3])
+        x = torch.from_numpy(data_raw[:, 0:3]).to(dtype=torch.float32)
         x = x.view(-1, record_length, n_feature).contiguous()
         self.x = x.to(storge_device)
 
         # normalization and then reshape to catchment*record
-        y = torch.from_numpy(data_raw[:, 3])
+        y = torch.from_numpy(data_raw[:, 3]).to(dtype=torch.float32)
         y = y.view(-1, record_length).contiguous()
         self.y = y.to(storge_device)
 
