@@ -27,11 +27,11 @@ FORCING_DIM = 3
 
 N_CATCHMENT = 2346
 
-EPOCHS = 500
+EPOCHS = 50
 
 TRAIN_YEAR = 19
 
-PATIENCE = 10
+PATIENCE = 50
 
 dtypes = defaultdict(lambda: float)
 dtypes["catchment_id"] = str

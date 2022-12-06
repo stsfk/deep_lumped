@@ -36,32 +36,13 @@ data_ts %>% count(collection_name)
 
 n_catchment <- unlist(ts_filename) %>% length()
 
-
 data_ts <- data_ts %>%
   mutate(data = map(path, read_csv, show_col_types = FALSE))
-
-for (i in 1:nrow(data_ts)){
-  data_ts$data[[i]] <-
-    read_csv(
-      paste0(
-        "./data/Caravan/timeseries/csv/",
-        data_ts$collection_name[[i]],
-        '/',
-        data_ts$file_name[[i]]
-      ),
-      show_col_types = FALSE
-    )
-}
 
 data_ts <- data_ts %>%
   select(-file_name)
 
-save(data_ts, file = "./data/Caravan/all_ts.Rda")
-
-
 # Filtering meteorological forcing  ---------------------------------------
-
-load("./data/Caravan/all_ts.Rda")
 
 data_raw <- data_ts %>%
   mutate(data = purrr::map(data, function(x)
@@ -235,43 +216,27 @@ data_test$date %>% range() # from "2010-01-01" to "2020-12-30", with the first y
 
 # save data ---------------------------------------------------------------
 
-data_train_val <- data_train_val %>%
-  group_by(catchment_id) %>%
-  arrange(date) %>% 
-  ungroup() %>%
-  select(P:Q)
+data_train_val %>%
+  arrange(catchment_id, date) %>%
+  select(P:Q) %>%
+  write_csv(file = "./data/Caravan/data_train_val_w_missing.csv")
 
-write_csv(data_train_val, file = "./data/data_train_val_w_missing.csv")
+data_train %>%
+  arrange(catchment_id, date) %>%
+  select(P:Q) %>%
+  write_csv(file = "./data/Caravan/data_train_w_missing.csv")
 
-data_train <- data_train %>%
-  group_by(catchment_id) %>%
-  arrange(date) %>% 
-  ungroup() %>%
-  select(P:Q)
+data_val %>%
+  arrange(catchment_id, date) %>%
+  select(P:Q) %>%
+  write_csv(file = "./data/Caravan/data_val_w_missing.csv")
 
-write_csv(data_train, file = "./data/data_train_w_missing.csv")
+data_test %>%
+  arrange(catchment_id, date) %>%
+  select(P:Q) %>% 
+  write_csv(file = "./data/Caravan/data_test_w_missing.csv")
 
-data_val <- data_val %>%
-  group_by(catchment_id) %>%
-  arrange(date) %>% 
-  ungroup() %>%
-  select(P:Q)
-
-write_csv(data_val, file = "./data/data_val_w_missing.csv")
-
-
-data_test <- data_test %>%
-  group_by(catchment_id) %>%
-  arrange(date) %>% 
-  ungroup() %>%
-  select(P:Q)
-
-write_csv(data_test, file = "./data/data_test_w_missing.csv")
-
-data_all <- data_process %>%
-  group_by(catchment_id) %>%
-  arrange(date) %>% 
-  ungroup() %>%
-  select(P:Q)
-
-write_csv(data_all, file = "./data/data_all_w_missing.csv")
+data_process %>%
+  arrange(catchment_id, date) %>%
+  select(P:Q) %>%
+  write_csv(file = "./data/Caravan/data_all_w_missing.csv")
