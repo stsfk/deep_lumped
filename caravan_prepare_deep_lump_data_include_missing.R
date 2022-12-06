@@ -219,22 +219,22 @@ data_test$date %>% range() # from "2010-01-01" to "2020-12-30", with the first y
 data_train_val %>%
   arrange(catchment_id, date) %>%
   select(P:Q) %>%
-  write_csv(file = "./data/Caravan/data_train_val_w_missing.csv")
+  write_csv(file = "./data/data_train_val_w_missing.csv")
 
 data_train %>%
   arrange(catchment_id, date) %>%
   select(P:Q) %>%
-  write_csv(file = "./data/Caravan/data_train_w_missing.csv")
+  write_csv(file = "./data/data_train_w_missing.csv")
 
 data_val %>%
   arrange(catchment_id, date) %>%
   select(P:Q) %>%
-  write_csv(file = "./data/Caravan/data_val_w_missing.csv")
+  write_csv(file = "./data/data_val_w_missing.csv")
 
 data_test %>%
   arrange(catchment_id, date) %>%
   select(P:Q) %>% 
-  write_csv(file = "./data/Caravan/data_test_w_missing.csv")
+  write_csv(file = "./data/data_test_w_missing.csv")
 
 data_process %>%
   arrange(catchment_id, date) %>%
