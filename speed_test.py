@@ -33,13 +33,13 @@ N_CATCHMENTS = 2346
 # training hyperparameters
 TRAIN_YEAR = 19
 
-use_amp = True
-compile_model = True
+use_amp = False
+compile_model = False
 
 if compile_model:
     torch.set_float32_matmul_precision("high")
 
-memory_saving = False
+memory_saving = True
 if memory_saving:
     storge_device = "cpu"
     computing_device = DEVICE
@@ -251,7 +251,7 @@ lstm_model = LSTM_model(
 starting_time = time.time()
 print("Process started...")
 
-fit = speed_test(lstm_model)
+fit = speed_test(lstm_model, epochs=10)
 
 print("Process ended...")
 ending_time = time.time()
