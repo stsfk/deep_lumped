@@ -33,8 +33,8 @@ N_CATCHMENTS = 2346
 # training hyperparameters
 TRAIN_YEAR = 19
 
-use_amp = False
-compile_model = False
+use_amp = True
+compile_model = True
 
 if compile_model:
     torch.set_float32_matmul_precision("high")

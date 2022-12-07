@@ -36,12 +36,12 @@ TRAIN_YEAR = 19
 PATIENCE = 20
 
 use_amp = True
-compile_model = True
+compile_model = False
 
 if compile_model:
     torch.set_float32_matmul_precision("high")
 
-memory_saving = False
+memory_saving = True
 if memory_saving:
     storge_device = "cpu"
     computing_device = DEVICE
@@ -210,24 +210,24 @@ LSTM_model_builder = training_fun.LSTM_model_builder(
 
 LSTM_objective = Objective(LSTM_model_builder).objective
 
-TCN_model_builder = training_fun.TCN_model_builder(
-    n_catchments=N_CATCHMENTS, base_length=BASE_LENGTH, forcing_dim=FORCING_DIM
-)
-TCN_objective = Objective(TCN_model_builder).objective
+# TCN_model_builder = training_fun.TCN_model_builder(
+#     n_catchments=N_CATCHMENTS, base_length=BASE_LENGTH, forcing_dim=FORCING_DIM
+# )
+# TCN_objective = Objective(TCN_model_builder).objective
 
 # %%
 study = optuna.create_study(
     study_name="base_model", direction="minimize", pruner=optuna.pruners.NopPruner()
 )
-study.optimize(LSTM_objective, n_trials=10)
+study.optimize(LSTM_objective, n_trials=50)
 
 joblib.dump(study, "base_LSTM_study.pkl")
 
 # %%
-study = optuna.create_study(
-    study_name="base_model", direction="minimize", pruner=optuna.pruners.NopPruner()
-)
+# study = optuna.create_study(
+#     study_name="base_model", direction="minimize", pruner=optuna.pruners.NopPruner()
+# )
 
-study.optimize(TCN_objective, n_trials=10)
+# study.optimize(TCN_objective, n_trials=10)
 
-joblib.dump(study, "base_TCN_study.pkl")
+# joblib.dump(study, "base_TCN_study.pkl")
