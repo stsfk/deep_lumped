@@ -238,20 +238,34 @@ def speed_test(model, epochs=2, batch_size=64, lr_embedding=0.001, lr_decoder=0.
     return early_stopper.min_validation_loss
 
 
-lstm_model = LSTM_model(
-    latent_dim=4,
-    lstm_hidden_dim=128,
-    n_lstm_layers=2,
-    fc_hidden_dims=[16, 8, 4],
-    p=0.5,
-    feature_dim=3,
-    output_dim=1,
-)
+# lstm_model = LSTM_model(
+#     latent_dim=4,
+#     lstm_hidden_dim=128,
+#     n_lstm_layers=2,
+#     fc_hidden_dims=[16, 8, 4],
+#     p=0.5,
+#     feature_dim=3,
+#     output_dim=1,
+# )
+
+# starting_time = time.time()
+# print("Process started...")
+
+# fit = speed_test(lstm_model, epochs=10)
+
+# print("Process ended...")
+# ending_time = time.time()
+# print(ending_time - starting_time)
+
+# print(f"fit={fit}")
+
+
+tcn_model = TCN_Model(hidden_channel_dim=128, kernel_size=3, p=0.5)
 
 starting_time = time.time()
 print("Process started...")
 
-fit = speed_test(lstm_model, epochs=10)
+fit = speed_test(tcn_model, epochs=10)
 
 print("Process ended...")
 ending_time = time.time()
