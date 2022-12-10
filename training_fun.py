@@ -228,7 +228,7 @@ class LSTM_model_builder:
 
         fc_hidden_dims = []
         for i in range(n_fc_layers):
-            fc_dim = trial.suggest_int(f"fc_dim{i}", 4, 16)
+            fc_dim = trial.suggest_int(f"fc_dim{i}", 2, 16)
             fc_hidden_dims.append(fc_dim)
 
         decoder = models.LSTM_decoder(
