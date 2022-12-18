@@ -4,18 +4,14 @@ from torch.nn.utils import weight_norm
 
 
 class TimeDistributed(nn.Module):
-    # Adatpted from https://discuss.pytorch.org/t/any-pytorch-function-can-work-as-keras-timedistributed/1346/4
+    # Reference: https://discuss.pytorch.org/t/any-pytorch-function-can-work-as-keras-timedistributed/1346/4
 
-    def __init__(self, module, batch_first=False, base_length=365):
+    def __init__(self, module, batch_first=False):
         super(TimeDistributed, self).__init__()
         self.module = module
         self.batch_first = batch_first
-        self.base_length = base_length
 
     def forward(self, x):
-
-        # subsetting x that the first base_length elements are not interested
-        x = x[:, self.base_length :, :]
 
         if len(x.size()) <= 2:
             return self.module(x)
@@ -82,13 +78,14 @@ class LSTM_decoder(nn.Module):
             nn.Sequential(*self.fc_layers), batch_first=True
         )
 
-    def forward(self, inputs):
-        self.out, (_, _) = self.lstm(inputs)
-        self.out = self.fc_layers(self.out)
+    def forward(self, inputs, base_length=365):
+        out, (_, _) = self.lstm(inputs)
+        out = self.fc_layers(out[:, base_length:, :])
 
-        return self.out
+        return out
 
     def decode(self, code, x):
+
         code = code.expand(x.shape[1], -1, -1).transpose(0, 1)
 
         x = torch.cat((code, x), 2)

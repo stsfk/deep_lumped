@@ -31,7 +31,7 @@ FORCING_DIM = 3
 N_CATCHMENTS = 2346
 
 # training hyperparameters
-EPOCHS = 500
+EPOCHS = 2  # 500
 TRAIN_YEAR = 19
 PATIENCE = 20
 
@@ -102,6 +102,9 @@ class Objective:
         batch_size_power = trial.suggest_int("batch_size_power", 4, 8)
         batch_size = 2**batch_size_power
 
+        # steps per epoch
+        steps = round(N_CATCHMENTS * TRAIN_YEAR / batch_size)
+
         # train model
         for epoch in range(EPOCHS):
 
@@ -110,48 +113,42 @@ class Objective:
             decoder.train()
             embedding.train()
 
-            for year in range(TRAIN_YEAR):
+            for step in range(steps):
 
-                x_batch, y_batch = dtrain.get_random_batch()
+                decoder_optimizer.zero_grad()
+                embedding_optimizer.zero_grad()
 
-                if memory_saving:
-                    x_batch, y_batch = x_batch.to(computing_device), y_batch.to(
-                        computing_device
-                    )
+                # put the models into training mode
+                decoder.train()
+                embedding.train()
 
-                catchment_index = torch.randperm(
-                    N_CATCHMENTS, device=computing_device
-                )  # add randomness
+                # get training batch and pass to device
+                (x_batch, y_batch, selected_catchments) = dtrain.get_random_batch(
+                    batch_size
+                )
 
-                # interate over catchments
-                for i in range(int(N_CATCHMENTS / batch_size)):
+                x_batch, y_batch, selected_catchments = (
+                    x_batch.to(computing_device),
+                    y_batch.to(computing_device),
+                    selected_catchments.to(computing_device),
+                )
 
-                    # prepare data
-                    ind_s = i * batch_size
-                    ind_e = (i + 1) * batch_size
+                # slice batch for training
+                with torch.autocast(
+                    device_type="cuda", dtype=torch.float16, enabled=use_amp
+                ):
+                    code = embedding(selected_catchments)
 
-                    selected_catchments = catchment_index[ind_s:ind_e]
+                    # pass through decoder
+                    out = decoder.decode(code, x_batch)
 
-                    x_sub, y_sub = x_batch[ind_s:ind_e, :, :], y_batch[ind_s:ind_e, :]
+                    # compute loss
+                    loss = training_fun.mse_loss_with_nans(out, y_batch)
 
-                    # prepare training, put the models into training mode
-                    decoder_optimizer.zero_grad()
-                    embedding_optimizer.zero_grad()
-
-                    # forward pass
-                    with torch.autocast(
-                        device_type="cuda", dtype=torch.float16, enabled=use_amp
-                    ):
-                        code = embedding(selected_catchments)
-                        out = decoder.decode(code, x_sub)
-
-                        # backprop
-                        loss = training_fun.mse_loss_with_nans(out, y_sub)
-
-                    scaler.scale(loss).backward()
-                    scaler.step(embedding_optimizer)
-                    scaler.step(decoder_optimizer)
-                    scaler.update()
+                scaler.scale(loss).backward()
+                scaler.step(embedding_optimizer)
+                scaler.step(decoder_optimizer)
+                scaler.update()
 
             # validate model after each epochs
             decoder.eval()
@@ -210,24 +207,10 @@ LSTM_model_builder = training_fun.LSTM_model_builder(
 
 LSTM_objective = Objective(LSTM_model_builder).objective
 
-# TCN_model_builder = training_fun.TCN_model_builder(
-#     n_catchments=N_CATCHMENTS, base_length=BASE_LENGTH, forcing_dim=FORCING_DIM
-# )
-# TCN_objective = Objective(TCN_model_builder).objective
-
 # %%
 study = optuna.create_study(
     study_name="base_model", direction="minimize", pruner=optuna.pruners.NopPruner()
 )
-study.optimize(LSTM_objective, n_trials=100)
+study.optimize(LSTM_objective, n_trials=2)
 
-joblib.dump(study, "base_LSTM_study.pkl")
-
-# %%
-# study = optuna.create_study(
-#     study_name="base_model", direction="minimize", pruner=optuna.pruners.NopPruner()
-# )
-
-# study.optimize(TCN_objective, n_trials=10)
-
-# joblib.dump(study, "base_TCN_study.pkl")
+joblib.dump(study, "data/test_study.pkl")

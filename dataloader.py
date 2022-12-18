@@ -47,16 +47,23 @@ class Forcing_Data(Dataset):
     def __len__(self):
         return self.x.shape[0]
 
-    def get_random_batch(self):
+    def get_random_batch(self, batch_size=64):
         # This fuction return a input and output pair for each catchment
         # reference: https://medium.com/@mbednarski/understanding-indexing-with-pytorch-gather-33717a84ebc4
         # https://stackoverflow.com/questions/50999977/what-does-the-gather-function-do-in-pytorch-in-layman-terms
+
+        selected_catchment_index = torch.randint(
+            low=0, high=self.n_catchment, size=(batch_size,), device=self.storge_device
+        )
+
+        x_sub = torch.index_select(self.x, dim=0, index=selected_catchment_index)
+        y_sub = torch.index_select(self.y, dim=0, index=selected_catchment_index)
 
         # randomly selects a starting time step for each catchment
         index = torch.randint(
             low=0,
             high=self.record_length - self.seq_length + 1,
-            size=(self.n_catchment,),
+            size=(batch_size,),
             device=self.storge_device,
         )
 
@@ -67,11 +74,15 @@ class Forcing_Data(Dataset):
         index_x = index_y.unsqueeze(-1).repeat(1, 1, self.n_feature)
 
         # use gather function to output values
-        x_batch, y_batch = self.x.gather(dim=1, index=index_x), self.y.gather(
+        x_batch, y_batch = x_sub.gather(dim=1, index=index_x), y_sub.gather(
             dim=1, index=index_y
         )
 
-        return x_batch, y_batch[:, self.base_length :]
+        return (
+            x_batch,
+            y_batch[:, self.base_length :],
+            selected_catchment_index,
+        )
 
     def get_val_batch(self):
         n_years = math.ceil(

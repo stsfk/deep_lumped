@@ -152,48 +152,42 @@ def speed_test(model, epochs=2, batch_size=64, lr_embedding=0.001, lr_decoder=0.
         decoder.train()
         embedding.train()
 
-        for year in range(TRAIN_YEAR):
+        for i in range(600):
 
-            x_batch, y_batch = dtrain.get_random_batch()
+            decoder_optimizer.zero_grad()
+            embedding_optimizer.zero_grad()
 
-            if memory_saving:
-                x_batch, y_batch = x_batch.to(computing_device), y_batch.to(
-                    computing_device
-                )
+            # put the models into training mode
+            decoder.train()
+            embedding.train()
 
-            catchment_index = torch.randperm(
-                N_CATCHMENTS, device=computing_device
-            )  # add randomness
+            # get training batch and pass to device
+            (x_batch, y_batch, selected_catchments) = dtrain.get_random_batch(
+                batch_size
+            )
 
-            # interate over catchments
-            for i in range(int(N_CATCHMENTS / batch_size)):
+            x_batch, y_batch, selected_catchments = (
+                x_batch.to(computing_device),
+                y_batch.to(computing_device),
+                selected_catchments.to(computing_device),
+            )
 
-                # prepare data
-                ind_s = i * batch_size
-                ind_e = (i + 1) * batch_size
+            # slice batch for training
+            with torch.autocast(
+                device_type="cuda", dtype=torch.float16, enabled=use_amp
+            ):
+                code = embedding(selected_catchments)
 
-                selected_catchments = catchment_index[ind_s:ind_e]
+                # pass through decoder
+                out = decoder.decode(code, x_batch)
 
-                x_sub, y_sub = x_batch[ind_s:ind_e, :, :], y_batch[ind_s:ind_e, :]
+                # compute loss
+                loss = training_fun.mse_loss_with_nans(out, y_batch)
 
-                # prepare training, put the models into training mode
-                decoder_optimizer.zero_grad()
-                embedding_optimizer.zero_grad()
-
-                # forward pass
-                with torch.autocast(
-                    device_type="cuda", dtype=torch.float16, enabled=use_amp
-                ):
-                    code = embedding(selected_catchments)
-                    out = decoder.decode(code, x_sub)
-
-                    # backprop
-                    loss = training_fun.mse_loss_with_nans(out, y_sub)
-
-                scaler.scale(loss).backward()
-                scaler.step(embedding_optimizer)
-                scaler.step(decoder_optimizer)
-                scaler.update()
+            scaler.scale(loss).backward()
+            scaler.step(embedding_optimizer)
+            scaler.step(decoder_optimizer)
+            scaler.update()
 
         # validate model after each epochs
         decoder.eval()
@@ -227,6 +221,8 @@ def speed_test(model, epochs=2, batch_size=64, lr_embedding=0.001, lr_decoder=0.
                 .cpu()
                 .numpy()
             )
+            
+        print(val_loss)
 
         # Early stop using early_stopper, break for loop
         if early_stopper.early_stop(val_loss):
