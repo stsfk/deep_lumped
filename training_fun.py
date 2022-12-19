@@ -216,7 +216,7 @@ class LSTM_model_builder:
         lstm_hidden_dim = trial.suggest_int("lstm_hidden_dim", 4, 256)
         n_lstm_layers = trial.suggest_int("n_lstm_layers", 1, 2)
         n_fc_layers = trial.suggest_int("n_fc_layers", 1, 3)
-        latent_dim_power = trial.suggest_int("LATENT_DIM_power", 1, 2)
+        latent_dim_power = trial.suggest_int("LATENT_DIM_power", 1, 3)
         latent_dim = 2**latent_dim_power
 
         drop_out_flag = trial.suggest_categorical("drop_out_flag", [True, False])
