@@ -33,7 +33,7 @@ N_CATCHMENTS = 2346
 # training hyperparameters
 EPOCHS = 200  # 500
 TRAIN_YEAR = 19
-PATIENCE = 20
+PATIENCE = 10
 
 use_amp = True
 compile_model = False
