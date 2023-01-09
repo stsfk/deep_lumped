@@ -31,7 +31,7 @@ FORCING_DIM = 3
 N_CATCHMENTS = 2346
 
 # training hyperparameters
-EPOCHS = 200  # 500
+EPOCHS = 200
 TRAIN_YEAR = 19
 PATIENCE = 10
 
@@ -41,7 +41,7 @@ compile_model = False
 if compile_model:
     torch.set_float32_matmul_precision("high")
 
-memory_saving = True
+memory_saving = False
 if memory_saving:
     storge_device = "cpu"
     computing_device = DEVICE
@@ -211,6 +211,6 @@ LSTM_objective = Objective(LSTM_model_builder).objective
 study = optuna.create_study(
     study_name="base_model", direction="minimize", pruner=optuna.pruners.NopPruner()
 )
-study.optimize(LSTM_objective, n_trials=20)
+study.optimize(LSTM_objective, n_trials=50)
 
-joblib.dump(study, "data/test_study.pkl")
+joblib.dump(study, "data/base_lstm_study.pkl")
