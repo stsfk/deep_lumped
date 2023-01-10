@@ -123,3 +123,85 @@ class Forcing_Data(Dataset):
                 out_y[i, :, :] = self.y[:, start_record_ind:end_record_ind]
 
         return out_x, out_y[:, :, self.base_length :]
+
+    def get_catchment_random_batch(self, selected_catchment, batch_size=64):
+
+        # This fuction return a input and output pair for each catchment
+        # reference: https://medium.com/@mbednarski/understanding-indexing-with-pytorch-gather-33717a84ebc4
+        # https://stackoverflow.com/questions/50999977/what-does-the-gather-function-do-in-pytorch-in-layman-terms
+
+        selected_catchment_index = (
+            torch.ones(size=(batch_size,), dtype=torch.int64, device=self.storge_device)
+            * selected_catchment
+        )
+
+        x_sub = torch.index_select(self.x, dim=0, index=selected_catchment_index)
+        y_sub = torch.index_select(self.y, dim=0, index=selected_catchment_index)
+
+        # randomly selects a starting time step for each catchment
+        index = torch.randint(
+            low=0,
+            high=self.record_length - self.seq_length + 1,
+            size=(batch_size,),
+            device=self.storge_device,
+        )
+
+        # expand the index to have the length of seq_length, adding 0 to seq_length to get correct index
+        index_y = index.unsqueeze(-1).repeat(1, self.seq_length) + torch.arange(
+            self.seq_length, device=self.storge_device
+        )
+        index_x = index_y.unsqueeze(-1).repeat(1, 1, self.n_feature)
+
+        # use gather function to output values
+        x_batch, y_batch = x_sub.gather(dim=1, index=index_x), y_sub.gather(
+            dim=1, index=index_y
+        )
+
+        return (
+            x_batch,
+            y_batch[:, self.base_length :],
+            selected_catchment_index,
+        )
+
+    def get_catchment_val_batch(self, selected_catchment):
+        n_years = math.ceil(
+            (self.record_length - self.base_length) / self.target_seq_length
+        )
+
+        out_x = (
+            torch.ones(
+                [n_years, self.n_catchment, self.seq_length, self.n_feature],
+                device=self.storge_device,
+            )
+            * torch.nan
+        )
+        out_y = (
+            torch.ones(
+                [n_years, self.n_catchment, self.seq_length], device=self.storge_device
+            )
+            * torch.nan
+        )
+
+        for i in range(n_years):
+            start_record_ind = self.base_length * i
+
+            if i == n_years - 1:
+                end_record_ind = self.record_length
+
+                out_x[i, :, 0 : (end_record_ind - start_record_ind), :] = self.x[
+                    :, start_record_ind:end_record_ind, :
+                ]
+                out_y[i, :, 0 : (end_record_ind - start_record_ind)] = self.y[
+                    :, start_record_ind:end_record_ind
+                ]
+
+            else:
+                end_record_ind = start_record_ind + self.seq_length
+
+                out_x[i, :, :, :] = self.x[:, start_record_ind:end_record_ind, :]
+                out_y[i, :, :] = self.y[:, start_record_ind:end_record_ind]
+
+        return (
+            out_x[:, selected_catchment, :, :],
+            out_y[:, selected_catchment, self.base_length :],
+        )
