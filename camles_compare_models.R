@@ -14,7 +14,7 @@ pacman::p_load(
 
 # data --------------------------------------------------------------------
 selected_catchment <- read_csv("./data/selected_catchments.csv") # selected catchments used in modeling, 536 catchment
-lumped <- read_csv("./data/lumped_KGEs.csv") %>% 
+lumped <- read_csv("./data/results/lumped_KGEs.csv") %>% 
   filter(catchment_id %in% selected_catchment$catchment_id) # 559 catchments
 
 ga_method <- read_csv("./data/ga_KGEs.csv", col_names = "KGE") %>% bind_cols(selected_catchment) %>% mutate(model_name = "ga")
@@ -24,7 +24,7 @@ catchment_points <- st_read("./data/CAMELS_US/maps/physio_shp/physio.shp")
 
 camels_topo <-
   read_delim(
-    "./data/CAMELS_US/camels_attributes_v2.0/camels_topo.txt",
+    "./data/camels_topo.txt",
     delim = ";"
   ) %>%
   select(gauge_id, gauge_lat, gauge_lon)
@@ -51,10 +51,14 @@ st_crs(data_plot) <-  st_crs(st_crs(usa))
 
 ggplot(usa) +
   geom_sf(color = "#2b2b2b", fill = "white", size=0.125) +
-  geom_sf(data = data_plot, aes(color = model_name, shape = model_name)) +
+  geom_sf(data = data_plot, aes(color = model_name, shape=model_name), size  = 0.8) +
   coord_sf(crs = st_crs("+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"), datum = NA) +
-  labs(color="best model", shape = "best model")+
-  ggthemes::theme_map()
+  labs(color="Model class", shape="Model class",title = "Which model class is the best?", subtitle = "Created using data from Knoben et al. (2020)")+
+  scale_color_manual(values = c("#66c2a5","#fc8d62","#8da0cb","#e78ac3","#a6d854","#ffd92f"))+
+  ggthemes::theme_map(base_size = 10)+
+  theme(legend.position = "bottom")
+  
+ggsave(filename = "data/fig_best_model_of_catchment.pdf", height = 12, width = 16, units = "cm")
 
 
 # Rank of the GA model ----------------------------------------------------
