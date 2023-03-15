@@ -1,3 +1,5 @@
+# This script is to process the data used in Knoben 2020, https://doi.org/10.1029/2019WR025975Received
+
 if (!require("pacman")) {
   install.packages("pacman")
 }
@@ -39,25 +41,25 @@ data_process <- data_raw %>%
   mutate(Q = replace(Q, Q<0, NA_real_))
 
 # split and write csv files, note there is a one-year warm-up period for each subset, 
-# record length = 3652 for each catchment
+# record length = 3652 for each catchment, 9 years data excluding warm up
 data_process %>%
   filter(date <= ymd("1998-12-31")) %>%
   select(-catchment_id, -date) %>%
   write_csv(file = "./data/all_camels_train_val.csv")
 
-# record length = 2922 for each catchment
+# record length = 2922 for each catchment, 7 years data excluding warm up
 data_process %>%
   filter(date <= ymd("1996-12-31")) %>%
   select(-catchment_id, -date) %>%
   write_csv(file = "./data/all_camels_train.csv")
 
-# record length = 1095 for each catchment
+# record length = 1095 for each catchment, 2 years data excluding warm up
 data_process %>%
   filter(date <= ymd("1998-12-31"), date >= ymd("1996-01-02")) %>%
   select(-catchment_id, -date) %>%
   write_csv(file = "./data/all_camels_val.csv")
 
-# record length = 4383 for each catchment
+# record length = 4383 for each catchment, 11 years data excluding warm up
 data_process %>%
   filter(date >= ymd("1998-01-01")) %>%
   select(-catchment_id, -date) %>%

@@ -1,3 +1,5 @@
+# This script is to process the data used in Knoben 2020, https://doi.org/10.1029/2019WR025975Received
+
 if (!require("pacman")) {
   install.packages("pacman")
 }
