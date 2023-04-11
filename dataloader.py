@@ -47,7 +47,7 @@ class Forcing_Data(Dataset):
     def __len__(self):
         return self.x.shape[0]
 
-    def get_random_batch(self, batch_size=64):
+    def get_random_batch(self, batch_size=64, remove_nan=True):
         # This fuction return a input and output pair for each catchment
         # reference: https://medium.com/@mbednarski/understanding-indexing-with-pytorch-gather-33717a84ebc4
         # https://stackoverflow.com/questions/50999977/what-does-the-gather-function-do-in-pytorch-in-layman-terms
@@ -77,6 +77,14 @@ class Forcing_Data(Dataset):
         x_batch, y_batch = x_sub.gather(dim=1, index=index_x), y_sub.gather(
             dim=1, index=index_y
         )
+
+        if remove_nan:
+            valid_sample_id = ~torch.any(
+                x_batch.isnan().view(x_batch.shape[0], -1), dim=1
+            )
+            x_batch = x_batch[valid_sample_id]
+            y_batch = y_batch[valid_sample_id]
+            selected_catchment_index = selected_catchment_index[valid_sample_id]
 
         return (
             x_batch,
