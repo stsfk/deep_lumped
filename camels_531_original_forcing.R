@@ -53,31 +53,55 @@ for (i in 1:length(collection_names)){
   data_process$Srad <- data_process$Srad/max(abs(data_process$Srad), na.rm = T)
   data_process$Vp <- data_process$Vp/max(abs(data_process$Vp), na.rm = T)
   
-  # length of record each catchment = 3653, "1998-10-01" to "2008-09-30" for warm-up; 9 year data excluding warm-up
+  # length of record each catchment = 5478, "1980-10-01" to "1981-09-30" for warm-up; 14 year data excluding warm-up
   data_process %>%
-    filter(date >= ymd("1998-10-01"), date <= ymd("2008-09-30")) %>%
+    filter(date >= ymd("1980-10-01"), date <= ymd("1995-09-30")) %>%
     select(-catchment_id, -date) %>%
     write_csv(file = paste0("./data/531_", collection_name, "_original_camels_train_val.csv"))
   
   
-  # record length = 2557 for each catchment, "1980-10-01" to "1981-09-30" for warm-up; 6 year data excluding warm-up
+  # length of record each catchment = 4017, "1980-10-01" to "1981-09-30" for warm-up; 10 year data excluding warm-up
   data_process %>%
-    filter(date >= ymd("1998-10-01"), date <= ymd("2005-09-30")) %>%
+    filter(date >= ymd("1980-10-01"), date <= ymd("1991-09-30")) %>%
     select(-catchment_id, -date) %>%
     write_csv(file = paste0("./data/531_", collection_name, "_original_camels_train.csv"))
   
   
-  # record length = 1461 for each catchment, "2004-10-01" to "2005-09-30" for warm-up; 3 year data excluding warm-up
+  # record length = 1826 for each catchment, "1990-10-01" to "1991-09-30" for warm-up; 4 year data excluding warm-up
   data_process %>%
-    filter(date >= ymd("2004-10-01"), date <= ymd("2008-09-30")) %>%
+    filter(date >= ymd("1990-10-01"), date <= ymd("1995-09-30")) %>%
     select(-catchment_id, -date) %>%
     write_csv(file = paste0("./data/531_", collection_name, "_original_camels_val.csv"))
   
   
-  # record length = 4017 for each catchment, "1988-10-01" to "1999-09-30" for warm-up; 10 year data excluding warm-up
+  # record length = 5844 for each catchment, "1994-10-01" to "1995-09-30" for warm-up; 15 year data excluding warm-up
   data_process %>%
-    filter(date >= ymd("1988-10-01"), date <= ymd("1999-09-30")) %>%
+    filter(date >= ymd("1994-10-01"), date <= ymd("2010-09-30")) %>%
     select(-catchment_id, -date) %>%
     write_csv(file = paste0("./data/531_", collection_name, "_original_camels_test.csv"))
 }
 
+
+
+# Different splits --------------------------------------------------------
+
+
+# record length = 2557 for each catchment, "1980-10-01" to "1981-09-30" for warm-up; 6 year data excluding warm-up
+data_process %>%
+  filter(date >= ymd("1998-10-01"), date <= ymd("2005-09-30")) %>%
+  select(-catchment_id, -date) %>%
+  write_csv(file = paste0("./data/531_", collection_name, "_original_camels_train.csv"))
+
+
+# record length = 1461 for each catchment, "2004-10-01" to "2005-09-30" for warm-up; 3 year data excluding warm-up
+data_process %>%
+  filter(date >= ymd("2004-10-01"), date <= ymd("2008-09-30")) %>%
+  select(-catchment_id, -date) %>%
+  write_csv(file = paste0("./data/531_", collection_name, "_original_camels_val.csv"))
+
+
+# record length = 4017 for each catchment, "1988-10-01" to "1999-09-30" for warm-up; 10 year data excluding warm-up
+data_process %>%
+  filter(date >= ymd("1988-10-01"), date <= ymd("1999-09-30")) %>%
+  select(-catchment_id, -date) %>%
+  write_csv(file = paste0("./data/531_", collection_name, "_original_camels_test.csv"))
