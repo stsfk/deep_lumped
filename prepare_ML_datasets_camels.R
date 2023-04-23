@@ -37,11 +37,11 @@ for (i in 1:length(collection_names)){
     left_join(data_process, by = c("catchment_id", "date"))
   
   # simple scaling to make forcing variables between -1 and 1
-  data_process$P <- data_process$P/max(abs(data_process$P), na.rm = T)
-  data_process$Tmax <- data_process$Tmax/max(abs(data_process$Tmax), na.rm = T)
-  data_process$Tmin <- data_process$Tmin/max(abs(data_process$Tmin), na.rm = T)
-  data_process$Srad <- data_process$Srad/max(abs(data_process$Srad), na.rm = T)
-  data_process$Vp <- data_process$Vp/max(abs(data_process$Vp), na.rm = T)
+  # data_process$P <- data_process$P/max(abs(data_process$P), na.rm = T)
+  # data_process$Tmax <- data_process$Tmax/max(abs(data_process$Tmax), na.rm = T)
+  # data_process$Tmin <- data_process$Tmin/max(abs(data_process$Tmin), na.rm = T)
+  # data_process$Srad <- data_process$Srad/max(abs(data_process$Srad), na.rm = T)
+  # data_process$Vp <- data_process$Vp/max(abs(data_process$Vp), na.rm = T)
   
   # length of record each catchment = 5478, "1980-10-01" to "1981-09-30" for warm-up; 14 year data excluding warm-up
   data_process %>%
