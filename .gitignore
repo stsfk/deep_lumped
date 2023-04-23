@@ -41,3 +41,5 @@ vignettes/*.pdf
 
 data/
 deep_lumped.Rproj
+
+old/
