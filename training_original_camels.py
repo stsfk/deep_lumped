@@ -34,7 +34,7 @@ TRAIN_YEAR = 10
 PATIENCE = 20
 
 use_amp = True
-compile_model = False
+compile_model = True
 
 if compile_model:
     torch.set_float32_matmul_precision("high")
