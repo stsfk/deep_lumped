@@ -69,13 +69,13 @@ dval = dataloader.Forcing_Data(
     base_length=BASE_LENGTH,
 )
 
-
 # %%
 class Objective:
     def __init__(self, model_builder):
         self.model_builder = model_builder
 
     def objective(self, trial):
+
         # prepare early stopper
         early_stopper = training_fun.EarlyStopper(patience=PATIENCE, min_delta=0)
 
@@ -107,12 +107,14 @@ class Objective:
 
         # train model
         for epoch in range(EPOCHS):
+
             # for each epoch get_random_batch method generates a batch that contains one year data for each catchment
             # repeat TRAIN_YEAR times to finish an epoch
             decoder.train()
             embedding.train()
 
             for step in range(steps):
+
                 decoder_optimizer.zero_grad()
                 embedding_optimizer.zero_grad()
 
