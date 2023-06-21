@@ -28,7 +28,7 @@ BASE_LENGTH = SEQ_LENGTH - TARGET_SEQ_LENGTH
 
 FORCING_DIM = 3
 
-N_CATCHMENTS = 2346
+N_CATCHMENTS = 2055
 
 # training hyperparameters
 EPOCHS = 200
@@ -41,7 +41,7 @@ compile_model = False
 if compile_model:
     torch.set_float32_matmul_precision("high")
 
-memory_saving = False
+memory_saving = True
 if memory_saving:
     storge_device = "cpu"
     computing_device = DEVICE
@@ -52,7 +52,7 @@ else:
 
 # %%
 dtrain = dataloader.Forcing_Data(
-    "data/data_train_w_missing.csv",
+    "./data/data_train_CARAVAN.csv",
     record_length=7304,
     storge_device=storge_device,
     seq_length=SEQ_LENGTH,
@@ -61,7 +61,7 @@ dtrain = dataloader.Forcing_Data(
 )
 
 dval = dataloader.Forcing_Data(
-    "data/data_val_w_missing.csv",
+    "data/data_val_CARAVAN.csv",
     record_length=4017,
     storge_device=storge_device,
     seq_length=SEQ_LENGTH,
@@ -209,6 +209,6 @@ LSTM_objective = Objective(LSTM_model_builder).objective
 study = optuna.create_study(
     study_name="base_model", direction="minimize", pruner=optuna.pruners.NopPruner()
 )
-study.optimize(LSTM_objective, n_trials=50)
+study.optimize(LSTM_objective, n_trials=200)
 
 joblib.dump(study, "data/base_lstm_study.pkl")
