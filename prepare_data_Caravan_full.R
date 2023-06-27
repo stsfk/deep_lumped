@@ -130,7 +130,7 @@ incomplete_catchments <-
     incomplete_catchment_val) %>%
   unique()
 
-# 4371 catchments left
+# 4370 catchments left
 data_process %>%
   filter(!(catchment_id %in% incomplete_catchments)) %>% pull(catchment_id) %>% unique() %>% length()
 
