@@ -5,21 +5,53 @@ if (!require("pacman")) {
 pacman::p_load(
   tidyverse,
   lubridate,
-  zeallot
+  zeallot,
+  sf
 )
 
 
-# Load data ---------------------------------------------------------------
-load("/Users/yang/Documents/projects/data/Caravan/forcing_runoff.Rda")
+# read data ---------------------------------------------------------------
 
-data_process <- data_ts %>% 
-  mutate(full_catchment_id = paste0(collection_name, "_", catchment_id)) %>%
-  mutate(catchment_id = full_catchment_id) %>%
-  select(-full_catchment_id) # use "full_catchment_id", which includes collection name
+# read catchment names
+file_folder <- "/Users/yang/Documents/projects/data/CAMELS_CH/Caravan_extension_CH/timeseries/csv/camelsch"
+all_catchments <- dir(file_folder) %>%
+  str_sub(1, -5)
 
-# QC ----------------------------------------------------------------------
+data_ts <- tibble(
+  catchment_id = all_catchments,
+  file_name = paste0(all_catchments, ".csv"),
+  # read only catchment not in the us
+  path = paste0(file_folder,
+                '/',
+                file_name),
+  data = vector("list", 1)
+) 
 
-# many missing data, some catchment only have 365 records
+data_ts <- data_ts %>%
+  mutate(data = map(path, read_csv, show_col_types = FALSE))
+
+data_ts <- data_ts %>%
+  mutate(data = purrr::map(data, function(x)
+    x %>% dplyr::select(
+      date,
+      P = total_precipitation_sum,
+      T = temperature_2m_mean,
+      PET = potential_evaporation_sum,
+      Q = streamflow
+    )))
+
+data_ts <- data_ts %>%
+  select(catchment_id, data)
+
+save(data_ts, file = "/Users/yang/Documents/projects/data/CAMELS_CH/Caravan_extension_CH/forcing_runoff.Rda")
+
+
+# process data ------------------------------------------------------------
+load("/Users/yang/Documents/projects/data/CAMELS_CH/Caravan_extension_CH/forcing_runoff.Rda")
+
+data_process <- data_ts
+
+# many missing data, some catchment have 0 records, the forcing data is not missing
 n_complete_record <- data_process %>%
   mutate(
     missingness = purrr::map_dbl(
@@ -29,7 +61,7 @@ n_complete_record <- data_process %>%
   ) %>%
   pull(missingness)
 
-# all the catchment's records are of the same length = 14609
+# all the catchment's records are of the same length = 14610
 data_process %>%
   mutate(
     record_length = purrr::map_dbl(
@@ -40,7 +72,7 @@ data_process %>%
   pull(record_length) %>%
   unique()
 
-# the start date is different, some from 1981-01-01, some from 1981-01-02
+# the start date is 1981-01-01
 data_process %>%
   mutate(
     start_date = purrr::map(
@@ -52,7 +84,7 @@ data_process %>%
   pull(start_date) %>%
   table()
 
-# the end date is different, some 2020-12-30, some from 2020-12-31
+# the end date is 2020-12-31
 data_process %>%
   mutate(
     start_date = purrr::map(
@@ -72,11 +104,6 @@ gc()
 
 data_process <- data_process %>%
   unnest(data)
-
-# use record from 1981-01-02 to 2020-12-30, as the data has different starting and ending dates
-data_process <- data_process %>%
-  filter(date > ymd("1981-01-01"),
-         date < ymd("2020-12-31"))
 
 # training and validation from 1981-01-02 to 2010-12-31, where data until 2000-12-31 is for training
 # testing from 2011-01-01 to 2020-12-31
@@ -123,13 +150,24 @@ incomplete_catchment_test <- data_process %>%
   filter(n_complete_record < minimal_required_Q_length) %>%
   pull(catchment_id)
 
+incomplete_catchment_train_val <- data_process %>%
+  filter(date < ymd("2011-01-01")) %>%
+  group_by(catchment_id) %>%
+  summarise(data = list(tibble(Q))) %>%
+  mutate(
+    n_complete_record = map_dbl(
+      data, function(x) complete.cases(x) %>% sum()
+    )
+  ) %>%
+  filter(n_complete_record < minimal_required_Q_length) %>%
+  pull(catchment_id)
+
 incomplete_catchments <-
-  c(incomplete_catchment_train,
-    incomplete_catchment_test,
-    incomplete_catchment_val) %>%
+  c(incomplete_catchment_train_val,
+    incomplete_catchment_test) %>%
   unique()
 
-# 4370 catchments left
+# 270 catchments left
 data_process %>%
   filter(!(catchment_id %in% incomplete_catchments)) %>% pull(catchment_id) %>% unique() %>% length()
 
@@ -142,13 +180,13 @@ data_process <- data_process %>%
 data_train_val <- data_process %>% 
   filter(date < ymd("2011-01-01"))
 
-data_train_val %>% count(catchment_id) %>% pull(n) %>% unique() # length = 10956
+data_train_val %>% count(catchment_id) %>% pull(n) %>% unique() # length = 10957
 
 # Q until 2001-01-01 is used for training
 data_train <- data_process %>% 
   filter(date < ymd("2001-01-01"))
 
-data_train %>% count(catchment_id) %>% pull(n) %>% unique() # length = 7304
+data_train %>% count(catchment_id) %>% pull(n) %>% unique() # length = 7305
 
 # Q from 2001-01-01 to 2010-12-31 is used for validation, forcing from 2000-01-02 is used
 data_val <- data_process %>% 
@@ -160,41 +198,47 @@ data_val %>% count(catchment_id) %>% pull(n) %>% unique() # length = 4017
 data_test <- data_process %>% 
   filter(date > ymd("2009-12-31"))
 
-data_test %>% count(catchment_id) %>% pull(n) %>% unique() # length = 4017
+data_test %>% count(catchment_id) %>% pull(n) %>% unique() # length = 4018
 
 # All the data
-data_process %>% count(catchment_id) %>% pull(n) %>% unique() # length = 14608
+data_process %>% count(catchment_id) %>% pull(n) %>% unique() # length = 14610
 
 # data range
 
-data_train_val$date %>% range() # from "1981-01-02" to "2010-12-31", with the first year for warm-up only
-data_train$date %>% range() # from "1981-01-02" to "2000-12-31", with the first year for warm-up only
+data_train_val$date %>% range() # from "1981-01-01" to "2010-12-31", with the first year for warm-up only
+data_train$date %>% range() # from "1981-01-01" to "2000-12-31", with the first year for warm-up only
 data_val$date %>% range() # from "2000-01-02" to "2010-12-31", with the first year for warm-up only
-data_test$date %>% range() # from "2010-01-01" to "2020-12-30", with the first year for warm-up only
+data_test$date %>% range() # from "2010-01-01" to "2020-12-31", with the first year for warm-up only
 
 # save data ---------------------------------------------------------------
 
 data_train_val %>%
   arrange(catchment_id, date) %>%
   select(P:Q) %>%
-  write_csv(file = "./data/data_train_val_CARAVAN_full.csv")
+  write_csv(file = "./data/data_train_val_CARAVAN_CH.csv")
 
 data_train %>%
   arrange(catchment_id, date) %>%
   select(P:Q) %>%
-  write_csv(file = "./data/data_train_CARAVAN_full.csv")
+  write_csv(file = "./data/data_train_CARAVAN_CH.csv")
 
 data_val %>%
   arrange(catchment_id, date) %>%
   select(P:Q) %>%
-  write_csv(file = "./data/data_val_CARAVAN_full.csv")
+  write_csv(file = "./data/data_val_CARAVAN_CH.csv")
 
 data_test %>%
   arrange(catchment_id, date) %>%
   select(P:Q) %>% 
-  write_csv(file = "./data/data_test_CARAVAN_full.csv")
+  write_csv(file = "./data/data_test_CARAVAN_CH.csv")
 
 data_process %>%
   arrange(catchment_id, date) %>%
   select(P:Q) %>% 
-  write_csv(file = "./data/data_all_CARAVAN_full.csv")
+  write_csv(file = "./data/data_all_CARAVAN_CH.csv")
+
+
+
+
+
+
