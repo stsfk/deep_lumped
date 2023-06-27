@@ -211,4 +211,4 @@ study = optuna.create_study(
 )
 study.optimize(LSTM_objective, n_trials=200)
 
-joblib.dump(study, "data/base_lstm_study.pkl")
+joblib.dump(study, "data/base_lstm_study_full.pkl")
