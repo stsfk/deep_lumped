@@ -6,6 +6,8 @@ import numpy as np
 
 import math
 
+import random
+
 
 class Forcing_Data(Dataset):
     def __init__(
@@ -51,10 +53,12 @@ class Forcing_Data(Dataset):
         # This fuction return a input and output pair for each catchment
         # reference: https://medium.com/@mbednarski/understanding-indexing-with-pytorch-gather-33717a84ebc4
         # https://stackoverflow.com/questions/50999977/what-does-the-gather-function-do-in-pytorch-in-layman-terms
-
-        selected_catchment_index = torch.randint(
-            low=0, high=self.n_catchment, size=(batch_size,), device=self.storge_device
-        )
+        indices = random.sample(range(self.n_catchment), batch_size)
+        selected_catchment_index = torch.tensor(indices, device=self.storge_device)
+        
+        # selected_catchment_index = torch.randint(
+        #     low=0, high=self.n_catchment, size=(batch_size,), device=self.storge_device
+        # )
 
         x_sub = torch.index_select(self.x, dim=0, index=selected_catchment_index)
         y_sub = torch.index_select(self.y, dim=0, index=selected_catchment_index)
