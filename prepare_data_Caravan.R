@@ -12,7 +12,7 @@ pacman::p_load(
 # Load data ---------------------------------------------------------------
 load("/Users/yang/Documents/projects/data/Caravan/forcing_runoff.Rda")
 
-non_US_catchments <- read_csv("/Users/yang/Documents/projects/data/Caravan/non_US_catchments.csv")
+non_US_catchments <- read_csv("/Users/yang/Documents/projects/data/Caravan/non_CAMELS_catchments.csv")
 
 # keep non-US catchments only
 data_process <- data_ts %>% 
@@ -133,7 +133,7 @@ incomplete_catchments <-
     incomplete_catchment_val) %>%
   unique()
 
-# 2055 catchments left
+# 3007 catchments left
 data_process %>%
   filter(!(catchment_id %in% incomplete_catchments)) %>% pull(catchment_id) %>% unique() %>% length()
 
