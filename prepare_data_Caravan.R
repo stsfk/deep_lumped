@@ -137,6 +137,9 @@ incomplete_catchments <-
 data_process %>%
   filter(!(catchment_id %in% incomplete_catchments)) %>% pull(catchment_id) %>% unique() %>% length()
 
+tibble(catchment_id = data_process %>% filter(!(catchment_id %in% incomplete_catchments)) %>% pull(catchment_id) %>% unique()) %>%
+  write_csv(file = "data/catchment_ids_Caravan.csv")
+
 data_process <- data_process %>%
   filter(!(catchment_id %in% incomplete_catchments))
 
