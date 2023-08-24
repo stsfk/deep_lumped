@@ -103,8 +103,9 @@ ggsave(filename = "./data/results/fig_caravan_train_vs_test.pdf", width = 7, hei
 
 
 
+# recycle -----------------------------------------------------------------
 
-
+"file:///Users/yang/Documents/projects/indexing_catchment_model/data/selected_catchments_camelsch.csv"
 
 
 

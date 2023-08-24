@@ -49,6 +49,7 @@ save(data_ts, file = "/Users/yang/Documents/projects/data/CAMELS_CH/Caravan_exte
 # process data ------------------------------------------------------------
 load("/Users/yang/Documents/projects/data/CAMELS_CH/Caravan_extension_CH/forcing_runoff.Rda")
 
+# process
 data_process <- data_ts
 
 # many missing data, some catchment have 0 records, the forcing data is not missing
@@ -102,7 +103,16 @@ data_process %>%
 rm(data_ts)
 gc()
 
+# catchments with no intersections with CARAVAN
+selected_catchments <-
+  read_csv(
+    "/Users/yang/Documents/projects/indexing_catchment_model/data/selected_catchments_camelsch.csv"
+  ) %>%
+  select(catchment_id = gauge_id)
+
+
 data_process <- data_process %>%
+  filter(catchment_id %in% selected_catchments$catchment_id) %>%
   unnest(data)
 
 # training and validation from 1981-01-02 to 2010-12-31, where data until 2000-12-31 is for training
@@ -167,7 +177,7 @@ incomplete_catchments <-
     incomplete_catchment_test) %>%
   unique()
 
-# 270 catchments left
+# 157 catchments left
 data_process %>%
   filter(!(catchment_id %in% incomplete_catchments)) %>% pull(catchment_id) %>% unique() %>% length()
 
