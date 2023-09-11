@@ -8,7 +8,10 @@ pacman::p_load(
   zeallot,
   sf,
   maps,
-  ggthemes
+  ggthemes,
+  cowplot,
+  grDevices,
+  viridis
 )
 
 
@@ -31,39 +34,163 @@ camels_topo <-
 
 usa <- st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
 
+
+# Read CAMELS-CH data -----------------------------------------------------
+
+data_process2 <- read_csv("./data/ga_KGEs_CH.csv",
+                          col_names = "KGE")
+
+
 # Plots -------------------------------------------------------------------
 
 deep_lumped$KGE %>% mean() # 0.5524054
 deep_lumped$KGE %>% median() # 0.7250877
 
+data_process2$KGE %>% median() # 0.7250877
+
 # CDF
 data_process <- lumped %>%
   mutate(type = "Conventional") %>%
-  bind_rows(deep_lumped %>% mutate(type = "ML"))
+  bind_rows(deep_lumped %>% mutate(type = "Generative")) %>%
+  filter(!is.na(KGE))
+#  mutate(type = factor(type, levels = c("Generative", "Conventional"))) %>%
 
-ggplot()+
-  stat_ecdf(data = data_process, aes(KGE, group = model_name, color = type)) +
-  coord_cartesian(xlim = c(-2,1))+
-  scale_color_manual(values = c("grey50", "coral")) +
-  labs(color = "Model type", y = "Non–exceedance probability", title = "Performance comparison between different types of lump models")+
-  theme_bw()
+A <- ggplot()+
+  stat_ecdf(data = data_process, aes(KGE, group = model_name, color = type),linewidth=0.3, alpha = 0.8) +
+  scale_color_manual(values = c("grey60", "red")) +
+  coord_cartesian(xlim = c(-1,1), expand = 0) +
+  annotate("text", x = -0.5, y = 0.5, label = paste0("Test median = 0.725"), size = 3.5)+
+  labs(color = "Model type", y = "Non-exceedance probability", title = "(a) CAMLES")+
+  theme_bw(base_size = 10)+
+  theme(
+    legend.position = c(0.05, 0.98),
+    legend.justification = c(0, 1),
+    plot.margin = margin(0.35, 0.5, 0.35, 0.35, "cm"),
+    legend.background = element_rect(fill = NA)
+  )
 
-# KGEs of deep learning models vs. best lumped model
+
+B <- ggplot()+
+  stat_ecdf(data = data_process2, aes(KGE), color = "red",linewidth=0.3, alpha = 0.8) +
+  coord_cartesian(xlim = c(-1,1), expand = 0) +
+  annotate("text", x = -0.5, y = 0.5, label = paste0("Test median = 0.808"), size = 3.5)+
+  labs(y = "Non-exceedance probability", title = "(b) CAMLES-CH")+
+  theme_bw(base_size = 10)+
+  theme(plot.margin = margin(0.35, 0.5, 0.35, 0.35, "cm"))
+
+C <- cowplot::plot_grid(A, B, rel_widths = c(1,1), nrow = 1)
+
+grDevices::cairo_pdf("./data/results/fig_generative_vs_lumped.pdf", width = 8, height = 4)
+C
+dev.off()
+
+
+ # KGEs of deep learning models vs. best lumped model
 best_lumped <- lumped %>%
   group_by(catchment_id)%>%
   summarise(KGE = max(KGE, na.rm = T))
 
 deep_lumped %>%
   left_join(best_lumped, by = "catchment_id") %>%
-  ggplot(aes(KGE.x, KGE.y))+
-  geom_point(color = "steelblue")+
-  geom_abline(slope = 1)+
-  labs(x = "Deep learning model",
-       y = "Best lumped model",
-       title = "KGEs of deep learning models vs. best lumped model") +
-  theme_bw()
+  ggplot(aes(KGE.y, KGE.x))+
+  geom_point(
+    fill = "steelblue",
+    shape = 21,
+    alpha = 0.5,
+    size = 1.25,
+    stroke = 0.5
+  ) +
+  geom_abline(
+    aes(
+      slope = 1,
+      intercept = 0,
+      linetype = "1:1 reference line"
+    ),
+    colour = 'coral2',
+    linewidth = 0.6
+  ) +
+  scale_linetype_manual(values = c(2))+
+  coord_cartesian(xlim = c(-1,1), expand = 0, ylim = c(-1,1)) +
+  labs(x = "Best conventional lumped model instance",
+       y = "Generative model instance",
+       linetype="")+
+  theme_bw(base_size = 10)+
+  theme(legend.position = "top", legend.key.height = unit(0.25, "cm"),
+        axis.text = element_text(size = 6.5),
+        plot.margin = margin(0.35,0.5,0.35,0.35, "cm"))
 
-# Spatial compare KGEs of deep learning models with best lumped model
+ggsave(filename = "./data/results/fig_best_lump_vs_generative.pdf", width = 5, height = 4, units = "in")
+
+
+
+# Rank of the models
+
+data_process <- lumped %>%
+  bind_rows(deep_lumped)
+
+data_plot <- data_process %>%
+  group_by(catchment_id) %>%
+  mutate(rank = rank(-KGE, na.last = T)) %>%
+  ungroup() %>%
+  filter(model_name == 'deep') %>%
+  left_join(camels_topo, by = c("catchment_id" = "gauge_id")) %>%
+  st_as_sf(coords = c("gauge_lon","gauge_lat"), remove = T)
+
+st_crs(data_plot) <-  st_crs(st_crs(usa))
+
+ggplot(data_plot)+
+  geom_histogram(aes(rank), bins = 37, color = "white")+
+  theme_bw(base_size = 10) # histogram
+
+ggsave(filename = "./data/results/fig_rank_histogram.pdf", width = 5, height = 3, units = "in")
+
+
+
+# maps of KGE
+data_plot2 <- data_plot %>%
+  mutate(KGE_group = cut(KGE, breaks = c(
+    -Inf, 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1
+  )))
+
+A <- ggplot(usa) +
+  geom_sf(color = "#2b2b2b", fill = "white", size=0.125) +
+  geom_sf(data = data_plot2, aes(color = KGE_group), size = 0.8) +
+  scale_color_viridis(discrete = TRUE, option="D")+
+  coord_sf(crs = st_crs("+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"), datum = NA) +
+  labs(color="KGE group") + #  title = "(a) KGE group of model instances derived from generative model")+
+  ggthemes::theme_map(base_size = 10)+
+  theme(legend.position = "right")
+
+B <- ggplot(usa) +
+  geom_sf(color = "#2b2b2b", fill = "white", size=0.125) +
+  geom_sf(data = data_plot, aes(color = rank), size = 0.8) +
+  scale_colour_gradientn(colours = terrain.colors(10))+
+  coord_sf(crs = st_crs("+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"), datum = NA) +
+  labs(color="Rank") + #title = "(b) Rank of model instances derived from generative model")+
+  ggthemes::theme_map(base_size = 10)+
+  theme(legend.position = "right")
+
+C <- cowplot::plot_grid(A, B, rel_widths = c(1,1), nrow = 2, labels = c("(a)", "(b)"), label_fontface = "plain", label_size = 12)
+
+grDevices::cairo_pdf("./data/results/fig_KGE_map.pdf", width = 6, height = 6)
+C
+dev.off()
+
+
+
+
+
+
+
+
+
+
+ # Recycle -----------------------------------------------------------------
+
+
+
+
+ # Spatial compare KGEs of deep learning models with best lumped model
 
 best_lumped <- lumped %>%
   group_by(catchment_id)%>%

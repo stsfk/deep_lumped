@@ -39,7 +39,7 @@ ggplot()+
   coord_cartesian(xlim = c(-1,1), expand = 0) +
   annotate("text", x = -0.65, y = 0.28, label = paste0("Test median = ", round(median(data_process$Test, na.rm = T),3)), size = 3.8)+
   annotate("text", x = -0.6, y = 0.36, label = paste0("Training median = ", round(median(data_process$Train, na.rm = T),3)), size = 3.8)+
-  labs(x = "KGE value", y = "Non-exceedance probability", color = "")+
+  labs(x = "KGE", y = "Non-exceedance probability", color = "")+
   theme_bw(base_size = 10)+
   theme(legend.position = "top")
 
@@ -91,7 +91,7 @@ ggplot(data_plot, aes(Train, Test)) +
     linewidth = 0.6
   ) +
   scale_linetype_manual(values = c(2))+
-  labs(x = "Training KGE value", y = "Test KGE value", linetype = "") +
+  labs(x = "Training KGE", y = "Test KGE", linetype = "") +
   facet_wrap(~ collection, scales = "free") +
   theme_bw(10)+
   theme(legend.position = "top", legend.key.height = unit(0.25, "cm"),
