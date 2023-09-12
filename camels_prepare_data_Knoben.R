@@ -10,12 +10,12 @@ pacman::p_load(
 
 # data --------------------------------------------------------------------
 
-filenames <- dir("./data/CAMELS_Knoben/")
+filenames <- dir("./data/CAMELS_Knoben/processed/")
 
 date <- read_csv("./data/CAMELS_Knoben/date.csv", col_names = "date") # the raw data only have a datenum column
 
 # 559 catchments used in the calibration study 
-selected_catchment_id <- read_csv("./data/CAMELS_Knoben/") %>% pull(catchment_id) %>% unique()
+selected_catchment_id <- read_csv("./data/CAMELS_Knoben/knoben_selected_catchment.csv") %>% pull(catchment_id) %>% unique()
 
 # function ----------------------------------------------------------------
 
@@ -44,6 +44,11 @@ data_process <- data_raw %>%
 # change missing Q (marked by negative values) to NA
 data_process <- data_process %>% 
   mutate(Q = replace(Q, Q<0, NA_real_))
+
+# write data for all catchments, record length = 7670 for each catchment
+data_process %>%
+  select(-catchment_id, -date) %>%
+  write_csv(file = "./data/camels_all.csv")
 
 # split and write csv files, note there is a one-year warm-up period for each subset, 
 # record length = 3652 for each catchment
