@@ -10,8 +10,7 @@ pacman::p_load(
   maps,
   ggthemes,
   cowplot,
-  grDevices,
-  viridis
+  grDevices
 )
 
 
@@ -147,10 +146,39 @@ ggsave(filename = "./data/results/fig_rank_histogram.pdf", width = 5, height = 3
 
 
 # maps of KGE
+data_process <- lumped %>%
+  bind_rows(deep_lumped)
+
+data_plot <- data_process %>%
+  group_by(catchment_id) %>%
+  mutate(rank = rank(-KGE, na.last = T)) %>%
+  ungroup() %>%
+  filter(model_name == 'deep') %>%
+  left_join(camels_topo, by = c("catchment_id" = "gauge_id")) %>%
+  st_as_sf(coords = c("gauge_lon","gauge_lat"), remove = T)
+
+st_crs(data_plot) <-  st_crs(st_crs(usa))
+
 data_plot2 <- data_plot %>%
   mutate(KGE_group = cut(KGE, breaks = c(
     -Inf, 0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1
   )))
+
+best_lumped <- lumped %>%
+  group_by(catchment_id)%>%
+  summarise(KGE = max(KGE, na.rm = T))
+
+data_plot_diff <- deep_lumped %>%
+  left_join(best_lumped, by = "catchment_id") %>%
+  mutate(diff = KGE.x - KGE.y) %>%
+  mutate(diff_group = cut(diff, breaks = c(
+    -Inf, -0.8, -0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6, 0.8, 1
+  ))) %>%
+  left_join(camels_topo, by = c("catchment_id" = "gauge_id")) %>%
+  st_as_sf(coords = c("gauge_lon","gauge_lat"), remove = T)
+
+st_crs(data_plot_diff) <-  st_crs(st_crs(usa))
+
 
 A <- ggplot(usa) +
   geom_sf(color = "#2b2b2b", fill = "white", size=0.125) +
@@ -159,9 +187,20 @@ A <- ggplot(usa) +
   coord_sf(crs = st_crs("+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"), datum = NA) +
   labs(color="KGE group") + #  title = "(a) KGE group of model instances derived from generative model")+
   ggthemes::theme_map(base_size = 10)+
-  theme(legend.position = "right")
+  theme(legend.position = "right",
+        legend.key.height = unit(0.5, "cm"))
 
 B <- ggplot(usa) +
+  geom_sf(color = "#2b2b2b", fill = "white", size=0.125) +
+  geom_sf(data = data_plot_diff, aes(color = diff_group), size = 0.8) +
+  scale_color_manual(values = c('#a50026','#d73027','#f46d43','#fdae61','#fee08b','#d9ef8b','#a6d96a','#66bd63','#1a9850','#006837'), drop=F)+#scale_color_brewer(palette="RdYlGn", drop=FALSE)+
+  coord_sf(crs = st_crs("+proj=laea +lat_0=45 +lon_0=-100 +x_0=0 +y_0=0 +a=6370997 +b=6370997 +units=m +no_defs"), datum = NA) +
+  labs(color="Difference in KGE\ncompard to best lumped") + #title = "(b) Rank of model instances derived from generative model")+
+  ggthemes::theme_map(base_size = 10)+
+  theme(legend.position = "right",
+        legend.key.height = unit(0.5, "cm"))
+
+D <- ggplot(usa) +
   geom_sf(color = "#2b2b2b", fill = "white", size=0.125) +
   geom_sf(data = data_plot, aes(color = rank), size = 0.8) +
   scale_colour_gradientn(colours = terrain.colors(10))+
@@ -170,16 +209,15 @@ B <- ggplot(usa) +
   ggthemes::theme_map(base_size = 10)+
   theme(legend.position = "right")
 
-C <- cowplot::plot_grid(A, B, rel_widths = c(1,1), nrow = 2, labels = c("(a)", "(b)"), label_fontface = "plain", label_size = 12)
+C <- cowplot::plot_grid(A, B, rel_widths = c(1,1), align="v", nrow = 2, labels = c("(a)", "(b)"), label_fontface = "plain", label_size = 12)
 
 grDevices::cairo_pdf("./data/results/fig_KGE_map.pdf", width = 6, height = 6)
 C
 dev.off()
 
 
-
-
-
+st_write(obj = data_plot2, dsn = "./data/results/camels_kge.shp")
+st_write(obj = data_plot_diff, dsn = "./data/results/camels_kge_diff.shp")
 
 
 
