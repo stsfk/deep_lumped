@@ -45,7 +45,7 @@ data_plot <- data_plot %>%
          dim = factor(dim, labels = paste0("dim=", 1:8))) %>%
   filter(time %in% c(6650:6850), # which max = 6696
          var %in%  c(-0.5, -0.1, 0, 0.1, 0.5)) %>%
-  mutate(var = factor(var, levels = c(-0.5, -0.1, 0, 0.1, 0.5), labels = c("-50%", "-10%", "no change", "+10%", "50%")),
+  mutate(var = factor(var, levels = c(-0.5, -0.1, 0, 0.1, 0.5), labels = c("-50%", "-10%", "no change", "+10%", "+50%")),
          time = ymd("1989-12-31") + time)
 
 ggplot(data_plot) +
