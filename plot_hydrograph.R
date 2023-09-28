@@ -24,7 +24,7 @@ variations <- expand_grid(dim = c(0:7),
   mutate(
     file_name = paste0("./data/hydrograph/dim_", dim, "_var_", var, ".csv"),
     data = vector("list", 1),
-    data = map(file_name, function(x)
+    data = purrr::map(file_name, function(x)
       read_csv(x, col_names = "Q_var") %>% mutate(time = 1:n()))
   )
 

@@ -10,7 +10,8 @@ pacman::p_load(
   maps,
   ggthemes,
   cowplot,
-  grDevices
+  grDevices,
+  viridis
 )
 
 
@@ -20,7 +21,7 @@ selected_catchment <- read_csv("./data/CAMELS_Knoben/selected_catchments.txt") %
 
 lumped <- read_csv("./data/results/lumped_KGEs.csv") # 559 catchments
 
-deep_lumped <- read_csv("./data/ga_KGEs2.csv", col_names = "KGE") %>% bind_cols(selected_catchment) %>% mutate(model_name = "deep")
+deep_lumped <- read_csv("./data/ga_KGEs_test.csv", col_names = "KGE") %>% bind_cols(selected_catchment) %>% mutate(model_name = "deep")
 
 catchment_points <- st_read("/Users/yang/Documents/projects/indexing_catchment_model/data/physio_shp/physio.shp")
 
@@ -36,16 +37,16 @@ usa <- st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
 
 # Read CAMELS-CH data -----------------------------------------------------
 
-data_process2 <- read_csv("./data/ga_KGEs_CH.csv",
+data_process2 <- read_csv("./data/ga_KGEs_CH_test.csv",
                           col_names = "KGE")
 
 
 # Plots -------------------------------------------------------------------
 
-deep_lumped$KGE %>% mean() # 0.5524054
-deep_lumped$KGE %>% median() # 0.7250877
+deep_lumped$KGE %>% mean() # 0.6594974
+deep_lumped$KGE %>% median() # 0.7372628
 
-data_process2$KGE %>% median() # 0.7250877
+data_process2$KGE %>% median() # 0.8083089
 
 # CDF
 data_process <- lumped %>%
@@ -58,7 +59,7 @@ A <- ggplot()+
   stat_ecdf(data = data_process, aes(KGE, group = model_name, color = type),linewidth=0.3, alpha = 0.8) +
   scale_color_manual(values = c("grey60", "red")) +
   coord_cartesian(xlim = c(-1,1), expand = 0) +
-  annotate("text", x = -0.5, y = 0.5, label = paste0("Test median = 0.725"), size = 3.5)+
+  annotate("text", x = -0.5, y = 0.5, label = paste0("Test median = 0.737"), size = 3.5)+
   labs(color = "Model type", y = "Non-exceedance probability", title = "(a) CAMLES")+
   theme_bw(base_size = 10)+
   theme(
@@ -123,7 +124,6 @@ ggsave(filename = "./data/results/fig_best_lump_vs_generative.pdf", width = 5, h
 
 
 # Rank of the models
-
 data_process <- lumped %>%
   bind_rows(deep_lumped)
 
@@ -216,8 +216,8 @@ C
 dev.off()
 
 
-st_write(obj = data_plot2, dsn = "./data/results/camels_kge.shp")
-st_write(obj = data_plot_diff, dsn = "./data/results/camels_kge_diff.shp")
+st_write(obj = data_plot2, dsn = "./data/results/camels_kge.shp",delete_dsn = T)
+st_write(obj = data_plot_diff, dsn = "./data/results/camels_kge_diff.shp",delete_dsn = T)
 
 
 

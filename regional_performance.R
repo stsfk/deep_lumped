@@ -17,9 +17,9 @@ pacman::p_load(
 
 catchment_id <- read_csv("data/catchment_ids_Caravan.csv")
 
-train_scores <- read_csv("data/train_scores_KGEs.csv", col_names = "Train") %>%
+train_scores <- read_csv("data/train_scores_KGEs_test.csv", col_names = "Train") %>%
   mutate(catchment_id = catchment_id$catchment_id)
-test_scores <- read_csv("data/test_scores_KGEs.csv", col_names = "Test") %>%
+test_scores <- read_csv("data/test_scores_KGEs_test.csv", col_names = "Test") %>%
   mutate(catchment_id = catchment_id$catchment_id)
 
 data_process <- train_scores %>%
