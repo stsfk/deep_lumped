@@ -38,7 +38,7 @@ ipython==8.4.0
 ipython-genutils==0.2.0
 jedi==0.18.1
 Jinja2==3.1.2
-joblib==1.1.0
+joblib==1.2.0
 json5==0.9.8
 jsonschema==4.7.2
 jupyter-client==7.3.4
@@ -75,7 +75,7 @@ parso==0.8.3
 pbr==5.11.0
 pexpect==4.8.0
 pickleshare==0.7.5
-Pillow==9.2.0
+Pillow==10.0.1
 prettytable==3.5.0
 prometheus-client==0.14.1
 prompt-toolkit==3.0.30
