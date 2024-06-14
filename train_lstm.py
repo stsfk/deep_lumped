@@ -31,9 +31,9 @@ FORCING_DIM = 3
 N_CATCHMENTS = 3681
 
 # training hyperparameters
-EPOCHS = 200
-TRAIN_YEAR = 19
-PATIENCE = 10
+EPOCHS = 500
+TRAIN_YEAR = 20
+PATIENCE = 20
 
 use_amp = True
 compile_model = False
