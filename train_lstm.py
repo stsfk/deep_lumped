@@ -41,7 +41,7 @@ compile_model = False
 if compile_model:
     torch.set_float32_matmul_precision("high")
 
-memory_saving = False
+memory_saving = True
 if memory_saving:
     storge_device = "cpu"
     computing_device = DEVICE
